@@ -30,6 +30,10 @@
           "type": "string",
           "description": "Optional URL to an attached image."
         },
+        "pcBuild": {
+          "type": "object",
+          "description": "Optional PC build data if generated."
+        },
         "createdAt": {
           "type": "timestamp",
           "description": "When the message was created."

@@ -59,13 +59,14 @@ service cloud.firestore {
     // Domain Validators
     function isValidMessage(data) {
       return hasRequiredFields(['uid', 'role', 'content', 'createdAt']) &&
-             hasOnlyAllowedFields(['uid', 'role', 'content', 'code', 'result', 'attachmentUrl', 'createdAt']) &&
+             hasOnlyAllowedFields(['uid', 'role', 'content', 'code', 'result', 'attachmentUrl', 'createdAt', 'pcBuild']) &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.role in ['user', 'ai'] &&
              data.content is string && data.content.size() >= 0 && data.content.size() <= 100000 &&
              isValidOptionalString('code', 0, 100000) &&
              isValidOptionalString('result', 0, 100000) &&
              isValidOptionalString('attachmentUrl', 0, 2000) &&
+             (!( 'pcBuild' in data ) || data.pcBuild is map) &&
              data.createdAt is timestamp;
     }
 

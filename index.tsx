@@ -10,11 +10,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
-import { Activity, SquareTerminal, Volume2, VolumeX, ShieldCheck, Send, Terminal, Mic, MicOff, Paperclip, X, Image as ImageIcon, Database, ArrowRight, Bell } from 'lucide-react';
+import { Activity, SquareTerminal, Volume2, VolumeX, ShieldCheck, Send, Terminal, Mic, MicOff, Paperclip, X, Image as ImageIcon, Database, ArrowRight, Bell, Cpu, MousePointer2, Zap, LayoutGrid } from 'lucide-react';
 import { auth, db, loginWithGoogle, logout } from './firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Globe } from './components/ui/globe';
+import mockVendorData from './data/mock_vendor.json';
 
 // Suppress React 19 defaultProps warnings caused by Recharts
 const originalConsoleError = console.error;
@@ -32,8 +33,37 @@ You are JARVIS, an advanced AI protocol assistant.
 Your interface is a high-tech HUD.
 You have access to a Python execution sandbox ("The Forge").
 When asked to perform tasks, write Python code to execute them if applicable.
-Keep your text responses concise, technical, and aligned with a cyber/HUD aesthetic.
-Do not output markdown code blocks for Python if you are using the codeExecution tool, the tool will handle it.
+
+### PC BUILDER ARCHITECT & LOREWEAVER PROTOCOL
+You are an orchestration AI responsible for generating technically flawless, locally available PC builds while embedding them into a narrative progression arc.
+When the user asks for a PC build:
+1. SELECT parts strictly from the provided VENDOR DATABASE.
+2. RESPOND in TWO distinct sections:
+   - SECTION 1: The Build (Strict JSON) inside a code block with language "json-build".
+   - SECTION 2: The Continuity Anchor (Markdown narrative).
+3. PRIORITIZE VRAM for AI-centric requests.
+
+### JSON-BUILD SCHEMA
+{
+  "build_codename": "String",
+  "components": {
+    "cpu": {"sku": "Exact Name", "price": 0.00},
+    "gpu": {"sku": "Exact Name", "vram_gb": 0, "price": 0.00},
+    "motherboard": {"sku": "Exact Name", "price": 0.00},
+    "ram": {"sku": "Exact Name", "capacity_gb": 0, "price": 0.00},
+    "storage": {"sku": "Exact Name", "price": 0.00},
+    "psu": {"sku": "Exact Name", "wattage": 0, "price": 0.00},
+    "case": {"sku": "Exact Name", "price": 0.00},
+    "cooling": {"sku": "Exact Name", "price": 0.00}
+  },
+  "metrics": {
+    "total_cost": 0.00,
+    "estimated_wattage_draw": 0,
+    "vram_total": 0
+  }
+}
+
+Keep your responses concise, technical, and aligned with a cyber/HUD aesthetic.
 `;
 
 type Message = {
@@ -43,6 +73,7 @@ type Message = {
   code?: string;
   result?: string;
   attachmentUrl?: string;
+  pcBuild?: any;
 };
 
 type NotificationType = {
@@ -125,6 +156,10 @@ const ActiveProtocols = () => (
         <span className="text-cyan-400 px-2 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded">ONLINE</span>
       </div>
       <div className="flex justify-between items-center border-b border-[#222] pb-2">
+        <span className="text-gray-300">Kinetic PC Builder</span>
+        <span className="text-cyan-400 px-2 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded">ONLINE</span>
+      </div>
+      <div className="flex justify-between items-center border-b border-[#222] pb-2">
         <span className="text-gray-300">Voice Synthesis (TTS)</span>
         <span className="text-cyan-400 px-2 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded">ONLINE</span>
       </div>
@@ -132,17 +167,63 @@ const ActiveProtocols = () => (
         <span className="text-gray-300">Global Network (Search)</span>
         <span className="text-cyan-400 px-2 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded">ONLINE</span>
       </div>
-      <div className="flex justify-between items-center border-b border-[#222] pb-2">
-        <span className="text-gray-300">Optical Sensor (Vision)</span>
-        <span className="text-cyan-400 px-2 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded">ONLINE</span>
-      </div>
       <div className="flex justify-between items-center">
-        <span className="text-gray-500">Blackout Filter</span>
+        <span className="text-gray-500">Optical Sensor (Vision)</span>
         <span className="text-yellow-400 px-2 py-0.5 bg-yellow-400/10 border border-yellow-400/20 rounded">STANDBY</span>
       </div>
     </div>
   </div>
 )
+
+const PCBuildCard = ({ build }: { build: any }) => {
+  if (!build) return null;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="bg-[#0a0a12]/90 border border-cyan-400/40 rounded-xl p-4 font-mono text-xs flex flex-col gap-3 shadow-[0_0_20px_rgba(0,240,255,0.15)] my-4"
+    >
+      <div className="flex justify-between items-center border-b border-cyan-400/20 pb-2">
+        <div className="flex items-center gap-2">
+          <Cpu className="text-cyan-400" size={16} />
+          <h3 className="text-cyan-400 font-bold uppercase tracking-widest">{build.build_codename || 'JARVIS KINETIC BUILD'}</h3>
+        </div>
+        <span className="text-gray-500">VERIFIED NODE</span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {Object.entries(build.components).map(([key, comp]: [string, any]) => (
+          <div key={key} className="flex flex-col gap-1 bg-black/40 p-2 rounded border border-[#333]">
+            <span className="text-gray-500 uppercase text-[10px]">{key}</span>
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-gray-300 truncate mr-2" title={comp.sku}>{comp.sku}</span>
+              <span className="text-cyan-400/80">${comp.price.toFixed(2)}</span>
+            </div>
+            {comp.vram_gb && <span className="text-[10px] text-pink-500/80">VRAM: {comp.vram_gb}GB</span>}
+            {comp.wattage && <span className="text-[10px] text-yellow-500/80">WATT: {comp.wattage}W</span>}
+            {comp.capacity_gb && <span className="text-[10px] text-green-500/80">CAP: {comp.capacity_gb}GB</span>}
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-cyan-400/20 pt-2 grid grid-cols-3 gap-2 text-center">
+        <div className="flex flex-col">
+          <span className="text-gray-500 text-[10px]">TOTAL COST</span>
+          <span className="text-cyan-400 font-bold">${build.metrics.total_cost.toFixed(2)}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-gray-500 text-[10px]">EST. DRAW</span>
+          <span className="text-yellow-400 font-bold">{build.metrics.estimated_wattage_draw}W</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-gray-500 text-[10px]">TOTAL VRAM</span>
+          <span className="text-pink-500 font-bold">{build.metrics.vram_total}GB</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 const MemoryCore = ({ messages, user, onNotify }: { messages: Message[], user: User | null, onNotify: (msg: string, type: 'info'|'success'|'warning') => void }) => {
   const [summary, setSummary] = useState<string>('');
@@ -329,7 +410,8 @@ function HUD({ onExit }: { onExit: () => void }) {
           content: data.content,
           code: data.code,
           result: data.result,
-          attachmentUrl: data.attachmentUrl
+          attachmentUrl: data.attachmentUrl,
+          pcBuild: data.pcBuild
         });
       });
       if (msgs.length === 0) {
@@ -446,7 +528,7 @@ function HUD({ onExit }: { onExit: () => void }) {
         model: 'gemini-3.1-pro-preview',
         contents: parts,
         config: {
-          systemInstruction: JARVIS_CONTEXT,
+          systemInstruction: JARVIS_CONTEXT + `\n\n### VENDOR DATABASE\n${JSON.stringify(mockVendorData, null, 2)}`,
           tools: [{ codeExecution: {} }, { googleSearch: {} }],
         },
       });
@@ -454,10 +536,31 @@ function HUD({ onExit }: { onExit: () => void }) {
       let textContent = '';
       let codeContent = '';
       let execResult = '';
+      let pcBuildData: any = null;
 
       if (response.candidates?.[0]?.content?.parts) {
         for (const part of response.candidates[0].content.parts) {
-          if (part.text) textContent += part.text;
+          if (part.text) {
+            // Detect JSON build block
+            const buildMatch = part.text.match(/```json-build\n([\s\S]*?)```/);
+            if (buildMatch) {
+              try {
+                pcBuildData = JSON.parse(buildMatch[1]);
+                // Kinetic Shield Validation
+                if (pcBuildData.components.psu && pcBuildData.metrics.estimated_wattage_draw) {
+                  if (pcBuildData.components.psu.wattage < pcBuildData.metrics.estimated_wattage_draw * 1.5) {
+                    showNotification('KINETIC SHIELD: PSU WATTAGE LOW (HEADROOM < 1.5X)', 'warning');
+                  }
+                }
+                textContent += part.text.replace(/```json-build\n([\s\S]*?)```/, '(PC BUILD SPECIFICATIONS EXTRACTED)');
+              } catch (e) {
+                console.error("Failed to parse pc-build json", e);
+                textContent += part.text;
+              }
+            } else {
+              textContent += part.text;
+            }
+          }
           if (part.executableCode) codeContent = part.executableCode.code;
           if (part.codeExecutionResult) execResult = part.codeExecutionResult.output;
         }
@@ -465,6 +568,10 @@ function HUD({ onExit }: { onExit: () => void }) {
       
       if (!textContent && !codeContent) {
         textContent = response.text || 'Protocol Executed. No text output.';
+      }
+
+      if (pcBuildData) {
+        showNotification('Kinetic Builder: Design synchronized.', 'success');
       }
 
       if (execResult) {
@@ -480,6 +587,7 @@ function HUD({ onExit }: { onExit: () => void }) {
         };
         if (codeContent) aiMsg.code = codeContent;
         if (execResult) aiMsg.result = execResult;
+        if (pcBuildData) aiMsg.pcBuild = pcBuildData;
         addDoc(collection(db, `users/${user.uid}/messages`), aiMsg);
       } else {
         setMessages(prev => [...prev, { 
@@ -487,7 +595,8 @@ function HUD({ onExit }: { onExit: () => void }) {
           role: 'ai', 
           content: textContent,
           code: codeContent,
-          result: execResult
+          result: execResult,
+          pcBuild: pcBuildData
         }]);
       }
 
@@ -602,6 +711,7 @@ function HUD({ onExit }: { onExit: () => void }) {
                     </div>
                   ) : (
                     <div className="text-gray-200 markdown-body">
+                      {msg.pcBuild && <PCBuildCard build={msg.pcBuild} />}
                       <div dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) }} />
                     </div>
                   )}

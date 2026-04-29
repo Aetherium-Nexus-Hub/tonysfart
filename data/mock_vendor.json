@@ -1,0 +1,52 @@
+{
+  "cpu": [
+    {"sku": "Intel Core i9-14900K", "price": 589.00},
+    {"sku": "AMD Ryzen 9 7950X3D", "price": 599.00},
+    {"sku": "Intel Core i7-14700K", "price": 409.00},
+    {"sku": "AMD Ryzen 7 7800X3D", "price": 369.00},
+    {"sku": "AMD Ryzen 5 7600X", "price": 229.00}
+  ],
+  "gpu": [
+    {"sku": "NVIDIA GeForce RTX 4090", "vram_gb": 24, "price": 1699.00},
+    {"sku": "NVIDIA GeForce RTX 4080 Super", "vram_gb": 16, "price": 999.00},
+    {"sku": "NVIDIA GeForce RTX 4070 Ti Super", "vram_gb": 16, "price": 799.00},
+    {"sku": "AMD Radeon RX 7900 XTX", "vram_gb": 24, "price": 929.00},
+    {"sku": "NVIDIA GeForce RTX 4060 Ti (16GB)", "vram_gb": 16, "price": 449.00}
+  ],
+  "motherboard": [
+    {"sku": "ASUS ROG Maximus Z790 Dark Hero", "price": 699.00},
+    {"sku": "MSI MAG B650 Tomahawk WiFi", "price": 219.00},
+    {"sku": "Gigabyte Z790 AORUS ELITE AX", "price": 249.00},
+    {"sku": "ASRock X670E Taichi", "price": 499.00}
+  ],
+  "ram": [
+    {"sku": "G.Skill Trident Z5 RGB 64GB (2x32GB) DDR5-6400", "capacity_gb": 64, "price": 219.00},
+    {"sku": "Corsair Vengeance RGB 32GB (2x16GB) DDR5-6000", "capacity_gb": 32, "price": 119.00},
+    {"sku": "Crucial Pro 32GB (2x16GB) DDR5-5600", "capacity_gb": 32, "price": 99.00},
+    {"sku": "Kingston Fury Renegade 96GB (2x48GB) DDR5-6000", "capacity_gb": 96, "price": 349.00}
+  ],
+  "storage": [
+    {"sku": "Samsung 990 Pro 2TB", "price": 179.00},
+    {"sku": "Kingston KC3000 2TB", "price": 149.00},
+    {"sku": "Crucial T705 2TB NVMe Gen5", "price": 319.00},
+    {"sku": "WD Black SN850X 4TB", "price": 299.00}
+  ],
+  "psu": [
+    {"sku": "Corsair RM1000x (2021)", "wattage": 1000, "price": 189.00},
+    {"sku": "Seasonic FOCUS GX-850", "wattage": 850, "price": 139.00},
+    {"sku": "EVGA SuperNOVA 1600 P+ Platinum", "wattage": 1600, "price": 399.00},
+    {"sku": "Be Quiet! Straight Power 12 750W", "wattage": 750, "price": 129.00}
+  ],
+  "case": [
+    {"sku": "Lian Li PC-O11 Dynamic EVO", "price": 169.00},
+    {"sku": "Fractal Design North", "price": 139.00},
+    {"sku": "NZXT H9 Flow", "price": 159.00},
+    {"sku": "Corsair 4000D Airflow", "price": 89.00}
+  ],
+  "cooling": [
+    {"sku": "NZXT Kraken Elite 360", "price": 279.00},
+    {"sku": "Noctua NH-D15 chromax.black", "price": 119.00},
+    {"sku": "Arctic Liquid Freezer III 360", "price": 110.00},
+    {"sku": "Corsair iCUE H150i ELITE CAPELLIX XT", "price": 189.00}
+  ]
+}
