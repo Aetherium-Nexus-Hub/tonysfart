@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "Message": {
+      "title": "Message",
+      "description": "A chat message in the Jarvis HUD.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The ID of the user who owns this message."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "ai"],
+          "description": "The role of the message sender."
+        },
+        "content": {
+          "type": "string",
+          "description": "The text content of the message."
+        },
+        "code": {
+          "type": "string",
+          "description": "Optional executable code."
+        },
+        "result": {
+          "type": "string",
+          "description": "Optional result of the executed code."
+        },
+        "attachmentUrl": {
+          "type": "string",
+          "description": "Optional URL to an attached image."
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the message was created."
+        }
+      },
+      "required": ["uid", "role", "content", "createdAt"]
+    },
+    "Summary": {
+      "title": "Summary",
+      "description": "A summary of the user's chat history.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The ID of the user who owns this summary."
+        },
+        "content": {
+          "type": "string",
+          "description": "The text content of the summary."
+        },
+        "updatedAt": {
+          "type": "timestamp",
+          "description": "When the summary was last updated."
+        }
+      },
+      "required": ["uid", "content", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/Message"
+      },
+      "description": "Messages belonging to a specific user."
+    },
+    "/users/{userId}/summary/{summaryId}": {
+      "schema": {
+        "$ref": "#/entities/Summary"
+      },
+      "description": "Summaries of the user's chat history."
+    }
+  }
+}

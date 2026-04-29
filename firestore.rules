@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: /users/{userId}/messages
+    // Document ID: auto-generated
+    // Fields:
+    //   - uid: string (required) - The ID of the user who owns this message.
+    //   - role: string (required) - 'user' or 'ai'
+    //   - content: string (required) - The text content of the message.
+    //   - code: string (optional) - Executable code.
+    //   - result: string (optional) - Result of the executed code.
+    //   - attachmentUrl: string (optional) - URL to an attached image.
+    //   - createdAt: timestamp (required) - When the message was created.
+    //
+    // Collection: /users/{userId}/summary
+    // Document ID: 'latest'
+    // Fields:
+    //   - uid: string (required)
+    //   - content: string (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+
+    // Domain Validators
+    function isValidMessage(data) {
+      return hasRequiredFields(['uid', 'role', 'content', 'createdAt']) &&
+             hasOnlyAllowedFields(['uid', 'role', 'content', 'code', 'result', 'attachmentUrl', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.role in ['user', 'ai'] &&
+             data.content is string && data.content.size() >= 0 && data.content.size() <= 100000 &&
+             isValidOptionalString('code', 0, 100000) &&
+             isValidOptionalString('result', 0, 100000) &&
+             isValidOptionalString('attachmentUrl', 0, 2000) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidSummary(data) {
+      return hasRequiredFields(['uid', 'content', 'updatedAt']) &&
+             hasOnlyAllowedFields(['uid', 'content', 'updatedAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.content is string && data.content.size() >= 0 && data.content.size() <= 100000 &&
+             data.updatedAt is timestamp;
+    }
+
+    match /users/{userId}/messages/{messageId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && 
+                    isValidMessage(request.resource.data) && 
+                    uidUnchanged() &&
+                    request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && 
+                    isDocOwner() &&
+                    isValidMessage(request.resource.data) && 
+                    uidNotModified() &&
+                    request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId) && isDocOwner();
+    }
+
+    match /users/{userId}/summary/{summaryId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && 
+                    isValidSummary(request.resource.data) && 
+                    uidUnchanged() &&
+                    request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && 
+                    isDocOwner() &&
+                    isValidSummary(request.resource.data) && 
+                    uidNotModified();
+      allow delete: if isOwner(userId) && isDocOwner();
+    }
+  }
+}
