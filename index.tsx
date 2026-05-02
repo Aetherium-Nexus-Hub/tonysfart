@@ -27,6 +27,7 @@ console.error = (...args: any[]) => {
 };
 
 const API_KEY = process.env.GEMINI_API_KEY;
+const NODE_ID = 'gen-lang-client-0011954453';
 
 const JARVIS_CONTEXT = `
 You are JARVIS, an advanced AI protocol assistant.
@@ -167,6 +168,10 @@ const ActiveProtocols = () => (
         <span className="text-gray-300">Global Network (Search)</span>
         <span className="text-cyan-400 px-2 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded">ONLINE</span>
       </div>
+      <div className="flex justify-between items-center border-b border-[#222] pb-2">
+        <span className="text-gray-300">Connected Node ID</span>
+        <span className="text-pink-500/80 font-mono text-[10px] tracking-tighter truncate ml-4" title={NODE_ID}>{NODE_ID}</span>
+      </div>
       <div className="flex justify-between items-center">
         <span className="text-gray-500">Optical Sensor (Vision)</span>
         <span className="text-yellow-400 px-2 py-0.5 bg-yellow-400/10 border border-yellow-400/20 rounded">STANDBY</span>
@@ -224,6 +229,45 @@ const PCBuildCard = ({ build }: { build: any }) => {
     </motion.div>
   );
 };
+
+const DiagnosticPanel = ({ onNotify, onTestAudio }: { onNotify: (msg: string, type: 'info'|'success'|'warning') => void, onTestAudio: () => void }) => (
+  <div className="bg-[#0a0a12]/80 backdrop-blur-md border border-[#333] rounded-xl p-4 flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+    <div className="flex justify-between items-center mb-4">
+      <h2 className="font-mono text-xs text-gray-400 flex items-center gap-2 tracking-wider"><Zap size={14} className="text-yellow-400"/> SYSTEM DIAGNOSTIC</h2>
+      <span className="text-[10px] font-mono text-cyan-400/50">v2.1.4</span>
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+      <button 
+        onClick={() => onNotify('System pulse clear. Logic stable.', 'success')}
+        className="bg-black/40 border border-[#333] hover:border-green-500/50 p-2 rounded flex flex-col items-center gap-1 transition-all group"
+      >
+        <Bell size={14} className="text-green-500 group-hover:scale-110 transition-transform" />
+        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter">Notif. OK</span>
+      </button>
+      <button 
+        onClick={() => onNotify('Warning: Kinetic shield at 24% capacity.', 'warning')}
+        className="bg-black/40 border border-[#333] hover:border-yellow-500/50 p-2 rounded flex flex-col items-center gap-1 transition-all group"
+      >
+        <Bell size={14} className="text-yellow-500 group-hover:scale-110 transition-transform" />
+        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter">Notif. Err</span>
+      </button>
+      <button 
+        onClick={onTestAudio}
+        className="bg-black/40 border border-[#333] hover:border-cyan-500/50 p-2 rounded flex flex-col items-center gap-1 transition-all group"
+      >
+        <Volume2 size={14} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter">Audio Ping</span>
+      </button>
+      <button 
+        onClick={() => window.location.reload()}
+        className="bg-black/40 border border-[#333] hover:border-pink-500/50 p-2 rounded flex flex-col items-center gap-1 transition-all group"
+      >
+        <LayoutGrid size={14} className="text-pink-500 group-hover:scale-110 transition-transform" />
+        <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter">Reboot UI</span>
+      </button>
+    </div>
+  </div>
+);
 
 const MemoryCore = ({ messages, user, onNotify }: { messages: Message[], user: User | null, onNotify: (msg: string, type: 'info'|'success'|'warning') => void }) => {
   const [summary, setSummary] = useState<string>('');
@@ -643,8 +687,8 @@ function HUD({ onExit }: { onExit: () => void }) {
               />
             )}
           </div>
-          <h1 className="font-mono text-xl text-cyan-400 tracking-[0.2em] uppercase cursor-pointer" onClick={onExit} style={{ textShadow: '0 0 10px rgba(0,240,255,0.4)' }}>
-            Jarvis Protocol <span className="text-xs text-gray-500 tracking-normal">// HUD v2.1</span>
+          <h1 className="font-mono text-xl text-cyan-400 tracking-[0.2em] uppercase cursor-pointer" onClick={onExit} style={{ textShadow: '0 0 10px rgba(0,240,240,0.4)' }}>
+            Jarvis Protocol <span className="text-xs text-gray-500 tracking-normal">// {NODE_ID}</span>
           </h1>
         </div>
         <div className="flex items-center gap-6">
@@ -683,6 +727,34 @@ function HUD({ onExit }: { onExit: () => void }) {
         <div className="hidden lg:flex lg:col-span-3 flex-col gap-6 min-h-0 overflow-y-auto pb-4">
           <TelemetryPanel />
           <ActiveProtocols />
+          <DiagnosticPanel 
+            onNotify={showNotification} 
+            onTestAudio={async () => {
+              if (isMuted) {
+                showNotification('Audio muted. Diagnostic ping suppressed.', 'warning');
+                return;
+              }
+              showNotification('Broadcasting diagnostic ping...', 'info');
+              try {
+                const ai = new GoogleGenAI({ apiKey: API_KEY });
+                const ttsResponse = await ai.models.generateContent({
+                  model: "gemini-2.5-flash-preview-tts",
+                  contents: [{ parts: [{ text: "System diagnostic ping. All audio modules reporting optimal performance." }] }],
+                  config: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: {
+                      voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }
+                    }
+                  }
+                });
+                const audioBase64 = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (audioBase64) playAudio(audioBase64);
+              } catch (e) {
+                console.error(e);
+                showNotification('Audio diagnostic failed.', 'warning');
+              }
+            }}
+          />
           <MemoryCore messages={messages} user={user} onNotify={showNotification} />
         </div>
 
