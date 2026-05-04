@@ -15,7 +15,7 @@ import { auth, db, loginWithGoogle, logout } from './firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Globe } from './components/ui/globe';
-import mockVendorData from './data/mock_vendor.json';
+import mockVendorData from './mockVendorData.json';
 
 // Suppress React 19 defaultProps warnings caused by Recharts
 const originalConsoleError = console.error;
@@ -33,29 +33,32 @@ const JARVIS_CONTEXT = `
 You are JARVIS, an advanced AI protocol assistant.
 Your interface is a high-tech HUD.
 You have access to a Python execution sandbox ("The Forge").
-When asked to perform tasks, write Python code to execute them if applicable.
 
-### PC BUILDER ARCHITECT & LOREWEAVER PROTOCOL
-You are an orchestration AI responsible for generating technically flawless, locally available PC builds while embedding them into a narrative progression arc.
-When the user asks for a PC build:
-1. SELECT parts strictly from the provided VENDOR DATABASE.
-2. RESPOND in TWO distinct sections:
-   - SECTION 1: The Build (Strict JSON) inside a code block with language "json-build".
-   - SECTION 2: The Continuity Anchor (Markdown narrative).
-3. PRIORITIZE VRAM for AI-centric requests.
+### DUAL-BRAIN ARCHITECTURE: ARCHITECT & LOREWEAVER
+When generating hardware solutions (PC builds), you operate as two distinct entities:
+
+1. THE ARCHITECT: Responsible for deterministic hardware validation.
+   - You MUST select parts ONLY from the VENDOR DATABASE.
+   - You MUST prioritize VRAM for AI-centric tasks (Local LLM orchestration, Vision synthesis).
+   - Balance budget with power requirements.
+   - Output Section 1: The Build (Strict JSON) inside a code block with language "json-build".
+
+2. THE LOREWEAVER: Responsible for continuous narrative justification.
+   - Frame the hardware choices as a journey (Scout -> Observer -> Remnant).
+   - Justify the "why" behind parts (e.g., why 24GB VRAM over faster clock speeds).
+   - Output Section 2: The Continuity Anchor (Markdown narrative).
 
 ### JSON-BUILD SCHEMA
 {
   "build_codename": "String",
+  "phase": "Scout | Observer | Remnant",
   "components": {
     "cpu": {"sku": "Exact Name", "price": 0.00},
     "gpu": {"sku": "Exact Name", "vram_gb": 0, "price": 0.00},
-    "motherboard": {"sku": "Exact Name", "price": 0.00},
     "ram": {"sku": "Exact Name", "capacity_gb": 0, "price": 0.00},
     "storage": {"sku": "Exact Name", "price": 0.00},
     "psu": {"sku": "Exact Name", "wattage": 0, "price": 0.00},
-    "case": {"sku": "Exact Name", "price": 0.00},
-    "cooling": {"sku": "Exact Name", "price": 0.00}
+    "case": {"sku": "Exact Name", "price": 0.00}
   },
   "metrics": {
     "total_cost": 0.00,
@@ -64,7 +67,7 @@ When the user asks for a PC build:
   }
 }
 
-Keep your responses concise, technical, and aligned with a cyber/HUD aesthetic.
+Keep responses technically precise, authoritative, and immersive.
 `;
 
 type Message = {
@@ -183,46 +186,64 @@ const ActiveProtocols = () => (
 const PCBuildCard = ({ build }: { build: any }) => {
   if (!build) return null;
 
+  const phaseColors: any = {
+    'Scout': 'text-green-400',
+    'Observer': 'text-cyan-400',
+    'Remnant': 'text-pink-500'
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-[#0a0a12]/90 border border-cyan-400/40 rounded-xl p-4 font-mono text-xs flex flex-col gap-3 shadow-[0_0_20px_rgba(0,240,255,0.15)] my-4"
+      className="bg-[#0a0a12]/90 border border-cyan-400/40 rounded-xl p-4 font-mono text-xs flex flex-col gap-3 shadow-[0_0_20px_rgba(0,240,255,0.15)] my-4 relative overflow-hidden"
     >
+      <div className="absolute top-0 right-0 p-1 bg-cyan-400/10 border-b border-l border-cyan-400/20 text-[8px] text-cyan-400/50">
+        KINETIC_VALIDATED
+      </div>
+
       <div className="flex justify-between items-center border-b border-cyan-400/20 pb-2">
         <div className="flex items-center gap-2">
           <Cpu className="text-cyan-400" size={16} />
-          <h3 className="text-cyan-400 font-bold uppercase tracking-widest">{build.build_codename || 'JARVIS KINETIC BUILD'}</h3>
+          <div>
+            <h3 className="text-cyan-400 font-bold uppercase tracking-widest">{build.build_codename || 'JARVIS KINETIC BUILD'}</h3>
+            {build.phase && <span className={`text-[9px] uppercase font-bold ${phaseColors[build.phase] || 'text-gray-500'}`}>{build.phase} ARC PHASE</span>}
+          </div>
         </div>
-        <span className="text-gray-500">VERIFIED NODE</span>
+        <div className="text-right">
+          <span className="text-gray-500 text-[10px] block">SECURITY_LAYER</span>
+          <span className="text-green-500 text-[9px]">ENFORCED</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
         {Object.entries(build.components).map(([key, comp]: [string, any]) => (
-          <div key={key} className="flex flex-col gap-1 bg-black/40 p-2 rounded border border-[#333]">
+          <div key={key} className="flex flex-col gap-1 bg-black/40 p-2 rounded border border-[#333] hover:border-cyan-400/20 transition-colors">
             <span className="text-gray-500 uppercase text-[10px]">{key}</span>
             <div className="flex justify-between items-center text-[11px]">
               <span className="text-gray-300 truncate mr-2" title={comp.sku}>{comp.sku}</span>
               <span className="text-cyan-400/80">${comp.price.toFixed(2)}</span>
             </div>
-            {comp.vram_gb && <span className="text-[10px] text-pink-500/80">VRAM: {comp.vram_gb}GB</span>}
-            {comp.wattage && <span className="text-[10px] text-yellow-500/80">WATT: {comp.wattage}W</span>}
-            {comp.capacity_gb && <span className="text-[10px] text-green-500/80">CAP: {comp.capacity_gb}GB</span>}
+            <div className="flex gap-2">
+              {comp.vram_gb && <span className="text-[9px] text-pink-500/80 px-1 bg-pink-500/10 rounded">VRAM: {comp.vram_gb}GB</span>}
+              {comp.wattage && <span className="text-[9px] text-yellow-500/80 px-1 bg-yellow-500/10 rounded">DR: {comp.wattage}W</span>}
+              {comp.capacity_gb && <span className="text-[9px] text-green-500/80 px-1 bg-green-500/10 rounded">MEM: {comp.capacity_gb}GB</span>}
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="border-t border-cyan-400/20 pt-2 grid grid-cols-3 gap-2 text-center">
+      <div className="border-t border-cyan-400/20 pt-2 grid grid-cols-3 gap-2 text-center bg-cyan-400/5 -mx-4 -mb-4 p-3 mt-1">
         <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">TOTAL COST</span>
+          <span className="text-gray-500 text-[10px]">TOTAL BUDGET</span>
           <span className="text-cyan-400 font-bold">${build.metrics.total_cost.toFixed(2)}</span>
         </div>
-        <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">EST. DRAW</span>
+        <div className="flex flex-col border-x border-white/5">
+          <span className="text-gray-500 text-[10px]">PEAK DRAW</span>
           <span className="text-yellow-400 font-bold">{build.metrics.estimated_wattage_draw}W</span>
         </div>
         <div className="flex flex-col">
-          <span className="text-gray-500 text-[10px]">TOTAL VRAM</span>
+          <span className="text-gray-500 text-[10px]">BUFFER (VRAM)</span>
           <span className="text-pink-500 font-bold">{build.metrics.vram_total}GB</span>
         </div>
       </div>
@@ -230,7 +251,7 @@ const PCBuildCard = ({ build }: { build: any }) => {
   );
 };
 
-const DiagnosticPanel = ({ onNotify, onTestAudio }: { onNotify: (msg: string, type: 'info'|'success'|'warning') => void, onTestAudio: () => void }) => (
+const DiagnosticPanel = ({ onNotify, onTestAudio, onSetInput }: { onNotify: (msg: string, type: 'info'|'success'|'warning') => void, onTestAudio: () => void, onSetInput: (val: string) => void }) => (
   <div className="bg-[#0a0a12]/80 backdrop-blur-md border border-[#333] rounded-xl p-4 flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.5)]">
     <div className="flex justify-between items-center mb-4">
       <h2 className="font-mono text-xs text-gray-400 flex items-center gap-2 tracking-wider"><Zap size={14} className="text-yellow-400"/> SYSTEM DIAGNOSTIC</h2>
@@ -264,6 +285,16 @@ const DiagnosticPanel = ({ onNotify, onTestAudio }: { onNotify: (msg: string, ty
       >
         <LayoutGrid size={14} className="text-pink-500 group-hover:scale-110 transition-transform" />
         <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter">Reboot UI</span>
+      </button>
+      <button 
+        onClick={() => {
+          onNotify('Protocol Sequence: Kinetic Builder Initialized.', 'info');
+          onSetInput('I need a high-end PC build for local AI training and 3D rendering. My budget is $3000. Prioritize VRAM.');
+        }}
+        className="bg-cyan-400/10 border border-cyan-400/30 hover:border-cyan-400 p-2 rounded flex flex-col items-center gap-1 transition-all group lg:col-span-2"
+      >
+        <Cpu size={14} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+        <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-tighter">Request PC Build</span>
       </button>
     </div>
   </div>
@@ -729,6 +760,7 @@ function HUD({ onExit }: { onExit: () => void }) {
           <ActiveProtocols />
           <DiagnosticPanel 
             onNotify={showNotification} 
+            onSetInput={setInput}
             onTestAudio={async () => {
               if (isMuted) {
                 showNotification('Audio muted. Diagnostic ping suppressed.', 'warning');

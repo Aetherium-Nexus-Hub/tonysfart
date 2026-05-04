@@ -1,0 +1,34 @@
+{
+  "cpus": [
+    { "name": "AMD Ryzen 9 7950X", "price": 549, "wattage": 170, "vram_friendly": true },
+    { "name": "Intel Core i9-14900K", "price": 589, "wattage": 253, "vram_friendly": true },
+    { "name": "AMD Ryzen 7 7800X3D", "price": 369, "wattage": 120, "vram_friendly": false },
+    { "name": "Intel Core i7-14700K", "price": 409, "wattage": 253, "vram_friendly": true }
+  ],
+  "gpus": [
+    { "name": "NVIDIA RTX 4090", "price": 1699, "wattage": 450, "vram": 24 },
+    { "name": "NVIDIA RTX 4080 Super", "price": 999, "wattage": 320, "vram": 16 },
+    { "name": "NVIDIA RTX 4070 Ti Super", "price": 799, "wattage": 285, "vram": 16 },
+    { "name": "AMD RX 7900 XTX", "price": 929, "wattage": 355, "vram": 24 }
+  ],
+  "ram": [
+    { "name": "64GB DDR5-6000 CL30", "price": 210 },
+    { "name": "32GB DDR5-6000 CL30", "price": 115 },
+    { "name": "128GB DDR5-5200 CL40", "price": 450 }
+  ],
+  "psus": [
+    { "name": "Corsair RM1000x", "price": 175, "wattage": 1000 },
+    { "name": "EVGA SuperNOVA 1300 GT", "price": 199, "wattage": 1300 },
+    { "name": "Seasonic FOCUS GX-850", "price": 130, "wattage": 850 },
+    { "name": "ASUS ROG Thor 1600T", "price": 499, "wattage": 1600 }
+  ],
+  "cases": [
+    { "name": "Lian Li Lancool 216", "price": 95 },
+    { "name": "Fractal Design North", "price": 139 },
+    { "name": "NZXT H9 Flow", "price": 159 }
+  ],
+  "storage": [
+    { "name": "2TB NVMe Gen4 SSD", "price": 140 },
+    { "name": "4TB NVMe Gen4 SSD", "price": 280 }
+  ]
+}
