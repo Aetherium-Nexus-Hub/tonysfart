@@ -1,9 +1,15 @@
 {
   "cpus": [
-    { "name": "AMD Ryzen 9 7950X", "price": 549, "wattage": 170, "vram_friendly": true },
-    { "name": "Intel Core i9-14900K", "price": 589, "wattage": 253, "vram_friendly": true },
-    { "name": "AMD Ryzen 7 7800X3D", "price": 369, "wattage": 120, "vram_friendly": false },
-    { "name": "Intel Core i7-14700K", "price": 409, "wattage": 253, "vram_friendly": true }
+    { "name": "AMD Ryzen 9 7950X", "price": 549, "wattage": 170, "vram_friendly": true, "socket": "AM5" },
+    { "name": "Intel Core i9-14900K", "price": 589, "wattage": 253, "vram_friendly": true, "socket": "LGA1700" },
+    { "name": "AMD Ryzen 7 7800X3D", "price": 369, "wattage": 120, "vram_friendly": false, "socket": "AM5" },
+    { "name": "Intel Core i7-14700K", "price": 409, "wattage": 253, "vram_friendly": true, "socket": "LGA1700" }
+  ],
+  "motherboards": [
+    { "name": "ASUS ROG STRIX X670E-F GAMING WIFI", "price": 389, "socket": "AM5", "chipset": "X670" },
+    { "name": "MSI MAG B650 TOMAHAWK WIFI", "price": 199, "socket": "AM5", "chipset": "B650" },
+    { "name": "ASUS ROG MAXIMUS Z790 HERO", "price": 629, "socket": "LGA1700", "chipset": "Z790" },
+    { "name": "MSI PRO Z790-A MAX WIFI", "price": 239, "socket": "LGA1700", "chipset": "Z790" }
   ],
   "gpus": [
     { "name": "NVIDIA RTX 4090", "price": 1699, "wattage": 450, "vram": 24 },

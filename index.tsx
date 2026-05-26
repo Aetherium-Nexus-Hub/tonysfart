@@ -38,14 +38,18 @@ You have access to a Python execution sandbox ("The Forge").
 When generating hardware solutions (PC builds), you operate as two distinct entities:
 
 1. THE ARCHITECT: Responsible for deterministic hardware validation.
-   - You MUST select parts ONLY from the VENDOR DATABASE.
+   - You MUST select parts ONLY from the VENDOR DATABASE (including CPUs, GPUs, motherboards, PSUs, Cases, RAM, Storage). No inventing non-existent models.
    - You MUST prioritize VRAM for AI-centric tasks (Local LLM orchestration, Vision synthesis).
-   - Balance budget with power requirements.
+   - Component Compatibility Requirements:
+     * Motherboard Socket Matching: You MUST pair any select CPU with a compatible motherboard sharing the exact same socket/platform:
+       - AMD Ryzen 9 7950X / AMD Ryzen 7 7800X3D (Socket AM5) require an AM5 Motherboard (e.g., ASUS ROG STRIX X670E-F / MSI MAG B650).
+       - Intel Core i9-14900K / Intel Core i7-14700K (Socket LGA1700) require an LGA1700 Motherboard (e.g., ASUS ROG MAXIMUS Z790 / MSI PRO Z790-A).
+     * Power Unit (PSU) Sizing Overhead: Compute the estimated peak system draw = (CPU Wattage + GPU Wattage + 50W auxiliary load). The selected PSU's rated wattage MUST be at least 1.3x higher than this sum.
    - Output Section 1: The Build (Strict JSON) inside a code block with language "json-build".
 
 2. THE LOREWEAVER: Responsible for continuous narrative justification.
    - Frame the hardware choices as a journey (Scout -> Observer -> Remnant).
-   - Justify the "why" behind parts (e.g., why 24GB VRAM over faster clock speeds).
+   - Justify the "why" behind parts (e.g., why 24GB VRAM over faster clock speeds, why the chosen motherboard and chipset suits the CPU, and why the PSU can easily withstand transit spikes and peak load profiles).
    - Output Section 2: The Continuity Anchor (Markdown narrative).
 
 ### JSON-BUILD SCHEMA
@@ -54,6 +58,7 @@ When generating hardware solutions (PC builds), you operate as two distinct enti
   "phase": "Scout | Observer | Remnant",
   "components": {
     "cpu": {"sku": "Exact Name", "price": 0.00},
+    "motherboard": {"sku": "Exact Name", "price": 0.00},
     "gpu": {"sku": "Exact Name", "vram_gb": 0, "price": 0.00},
     "ram": {"sku": "Exact Name", "capacity_gb": 0, "price": 0.00},
     "storage": {"sku": "Exact Name", "price": 0.00},
@@ -192,6 +197,86 @@ const PCBuildCard = ({ build }: { build: any }) => {
     'Remnant': 'text-pink-500'
   };
 
+  // Compatibility validation logic based on selected parts
+  const selectedCpuSku = build.components?.cpu?.sku;
+  const selectedMoboSku = build.components?.motherboard?.sku;
+  const selectedGpuSku = build.components?.gpu?.sku;
+  const selectedPsuSku = build.components?.psu?.sku;
+
+  const cpuData = mockVendorData.cpus.find((c: any) => c.name === selectedCpuSku);
+  const moboData = mockVendorData.motherboards.find((m: any) => m.name === selectedMoboSku);
+  const gpuData = mockVendorData.gpus.find((g: any) => g.name === selectedGpuSku);
+  const psuData = mockVendorData.psus.find((p: any) => p.name === selectedPsuSku);
+
+  // 1. Socket compatibility calculation
+  const cpuSocket = cpuData?.socket;
+  const moboSocket = moboData?.socket;
+  const socketCompatible = cpuSocket && moboSocket ? (cpuSocket === moboSocket) : null;
+
+  // 2. Headroom overhead calculations
+  const cpuPower = cpuData?.wattage || 0;
+  const gpuPower = gpuData?.wattage || 0;
+  const estimatedActualDraw = cpuPower + gpuPower + 50; // Auxiliary margin for storage, memory modules
+
+  const psuWatts = psuData?.wattage || build.components?.psu?.wattage || 0;
+  const headroomRatio = estimatedActualDraw > 50 && psuWatts > 0 ? (psuWatts / estimatedActualDraw) : 0;
+  const isPsuSufficient = headroomRatio >= 1.3;
+
+  // 3. VRM temperature calculation / simulation
+  const baseVrmTemp = moboData 
+    ? (moboData.price > 400 ? 38 : moboData.price > 220 ? 44 : 48) 
+    : 45;
+  const loadOffset = (cpuPower / 250) * 18; // heavier CPU produces higher baseline load temps
+  const targetTempBaseline = baseVrmTemp + loadOffset;
+
+  const [vrmTemp, setVrmTemp] = useState(targetTempBaseline);
+
+  useEffect(() => {
+    // Sync starting value with new build choices immediately
+    setVrmTemp(targetTempBaseline);
+  }, [targetTempBaseline]);
+
+  useEffect(() => {
+    // Simulate active sensor polling with subtle real-time fluctuations
+    const interval = setInterval(() => {
+      setVrmTemp(prev => {
+        const driftRange = 0.8;
+        const currentDiff = prev - targetTempBaseline;
+        const randomDelta = (Math.random() - 0.5) * 0.3;
+        
+        // Slight gravitational pull towards target baseline to keep it stable
+        const correction = currentDiff > driftRange ? -0.05 : currentDiff < -driftRange ? 0.05 : 0;
+        
+        return Number((prev + randomDelta + correction).toFixed(1));
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [targetTempBaseline]);
+
+  // Determine severity style properties
+  let vrmColor = 'text-green-400';
+  let statusLabel = 'NOMINAL';
+  let pulseClass = 'bg-green-500 animate-pulse';
+
+  if (vrmTemp > 75) {
+    vrmColor = 'text-red-500 font-extrabold';
+    statusLabel = 'CRITICAL OVERHEAT';
+    pulseClass = 'bg-red-500 animate-ping';
+  } else if (vrmTemp > 58) {
+    vrmColor = 'text-yellow-400';
+    statusLabel = 'ELEVATED';
+    pulseClass = 'bg-yellow-400 animate-pulse';
+  } else if (vrmTemp > 45) {
+    vrmColor = 'text-cyan-400';
+    statusLabel = 'OPTIMAL';
+    pulseClass = 'bg-cyan-400';
+  } else {
+    vrmColor = 'text-green-400';
+    statusLabel = 'COOL/STANDBY';
+    pulseClass = 'bg-green-400';
+  }
+
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
@@ -217,20 +302,82 @@ const PCBuildCard = ({ build }: { build: any }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-        {Object.entries(build.components).map(([key, comp]: [string, any]) => (
-          <div key={key} className="flex flex-col gap-1 bg-black/40 p-2 rounded border border-[#333] hover:border-cyan-400/20 transition-colors">
-            <span className="text-gray-500 uppercase text-[10px]">{key}</span>
-            <div className="flex justify-between items-center text-[11px]">
-              <span className="text-gray-300 truncate mr-2" title={comp.sku}>{comp.sku}</span>
-              <span className="text-cyan-400/80">${comp.price.toFixed(2)}</span>
+        {Object.entries(build.components).map(([key, comp]: [string, any]) => {
+          if (!comp) return null;
+          let socketSpec = '';
+          let chipsetSpec = '';
+          if (key === 'cpu' && cpuData?.socket) {
+            socketSpec = cpuData.socket;
+          }
+          if (key === 'motherboard' && moboData) {
+            socketSpec = moboData.socket;
+            chipsetSpec = moboData.chipset;
+          }
+
+          return (
+            <div key={key} className="flex flex-col gap-1 bg-black/40 p-2 rounded border border-[#333] hover:border-cyan-400/20 transition-colors">
+              <span className="text-gray-500 uppercase text-[10px]">{key}</span>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-gray-300 truncate mr-2" title={comp.sku}>{comp.sku}</span>
+                <span className="text-cyan-400/80">${comp.price ? comp.price.toFixed(2) : '0.00'}</span>
+              </div>
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {comp.vram_gb && <span className="text-[9px] text-pink-500/80 px-1 bg-pink-500/10 rounded">VRAM: {comp.vram_gb}GB</span>}
+                {comp.wattage && <span className="text-[9px] text-yellow-500/80 px-1 bg-yellow-500/10 rounded">DR: {comp.wattage}W</span>}
+                {comp.capacity_gb && <span className="text-[9px] text-green-500/80 px-1 bg-green-500/10 rounded">MEM: {comp.capacity_gb}GB</span>}
+                {socketSpec && <span className="text-[9px] text-blue-400 px-1 bg-blue-500/10 rounded">SOCKET: {socketSpec}</span>}
+                {chipsetSpec && <span className="text-[9px] text-purple-400 px-1 bg-purple-500/10 rounded">CHIPSET: {chipsetSpec}</span>}
+              </div>
             </div>
-            <div className="flex gap-2">
-              {comp.vram_gb && <span className="text-[9px] text-pink-500/80 px-1 bg-pink-500/10 rounded">VRAM: {comp.vram_gb}GB</span>}
-              {comp.wattage && <span className="text-[9px] text-yellow-500/80 px-1 bg-yellow-500/10 rounded">DR: {comp.wattage}W</span>}
-              {comp.capacity_gb && <span className="text-[9px] text-green-500/80 px-1 bg-green-500/10 rounded">MEM: {comp.capacity_gb}GB</span>}
+          );
+        })}
+      </div>
+
+      {/* Live Compatibility Verification telemetry panel */}
+      <div className="border border-cyan-400/20 bg-cyan-400/5 p-2 rounded mt-1 flex flex-col gap-1.5">
+        <span className="text-cyan-400 text-[10px] uppercase tracking-wider font-bold">🛠️ COMPATIBILITY TELEMETRY REPORT</span>
+        
+        {/* Socket matching visualization */}
+        <div className="flex justify-between items-center text-[10px]">
+          <span className="text-gray-400">Platform Alignment ({cpuSocket || 'UNKNOWN'} / {moboSocket || 'UNKNOWN'}):</span>
+          {socketCompatible === true ? (
+            <span className="text-green-400 font-bold">✓ ALIGNED ({cpuSocket})</span>
+          ) : socketCompatible === false ? (
+            <span className="text-red-500 font-bold animate-pulse">✗ MISMATCH ERROR</span>
+          ) : (
+            <span className="text-yellow-400">⚡ INCOMPLETE SYSTEM</span>
+          )}
+        </div>
+
+        {/* Real-time power margin telemetry */}
+        <div className="flex justify-between items-center text-[10px]">
+          <span className="text-gray-400">Power Overhead Sizing ({psuWatts}W vs {estimatedActualDraw}W actual sum):</span>
+          {isPsuSufficient ? (
+            <span className="text-green-400 font-bold">✓ STABLE ({headroomRatio.toFixed(1)}x overhead)</span>
+          ) : psuWatts > 0 ? (
+            <span className="text-yellow-400 font-bold animate-pulse">⚠ LOW OVERHEAD ({headroomRatio.toFixed(1)}x)</span>
+          ) : (
+            <span className="text-gray-500">AWAITING POWER UNIT</span>
+          )}
+        </div>
+
+        {/* VRM Motherboard Temperature Display */}
+        <div className="flex justify-between items-center text-[10px]">
+          <span className="text-gray-400">Motherboard VRM Temp (Thermal Sensor #VRM1):</span>
+          {selectedMoboSku ? (
+            <div className="flex items-center gap-1.5">
+              <span className={`font-bold transition-colors duration-300 ${vrmColor}`}>
+                {vrmTemp.toFixed(1)}°C
+              </span>
+              <span className="text-[8px] text-gray-400 uppercase">
+                ({statusLabel})
+              </span>
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${pulseClass}`} />
             </div>
-          </div>
-        ))}
+          ) : (
+            <span className="text-gray-500">NO MOTHERBOARD MOUNTED</span>
+          )}
+        </div>
       </div>
 
       <div className="border-t border-cyan-400/20 pt-2 grid grid-cols-3 gap-2 text-center bg-cyan-400/5 -mx-4 -mb-4 p-3 mt-1">
@@ -240,7 +387,7 @@ const PCBuildCard = ({ build }: { build: any }) => {
         </div>
         <div className="flex flex-col border-x border-white/5">
           <span className="text-gray-500 text-[10px]">PEAK DRAW</span>
-          <span className="text-yellow-400 font-bold">{build.metrics.estimated_wattage_draw}W</span>
+          <span className="text-yellow-400 font-bold">{build.metrics.estimated_wattage_draw || estimatedActualDraw}W</span>
         </div>
         <div className="flex flex-col">
           <span className="text-gray-500 text-[10px]">BUFFER (VRAM)</span>
@@ -418,6 +565,43 @@ const TheForge = ({ code, result }: { code?: string, result?: string }) => (
   </div>
 )
 
+const compressImage = (dataUrl: string, maxWidth = 500, maxHeight = 500): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = dataUrl;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      } else {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => {
+      resolve(dataUrl);
+    };
+  });
+};
+
 function HUD({ onExit }: { onExit: () => void }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -433,6 +617,7 @@ function HUD({ onExit }: { onExit: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const prevUserRef = useRef<User | null>(null);
+  const showNotificationRef = useRef<(message: string, type?: 'info' | 'success' | 'warning') => void>(() => {});
 
   const showNotification = (message: string, type: 'info' | 'success' | 'warning' = 'info') => {
     const id = Date.now().toString();
@@ -441,6 +626,10 @@ function HUD({ onExit }: { onExit: () => void }) {
       setNotification(prev => prev?.id === id ? null : prev);
     }, 4000);
   };
+
+  useEffect(() => {
+    showNotificationRef.current = showNotification;
+  });
 
   const latestExecution = [...messages].reverse().find(m => m.code || m.result);
 
@@ -495,6 +684,8 @@ function HUD({ onExit }: { onExit: () => void }) {
           role: 'ai',
           content: '**Protocol Artifact Loaded.**\n\nExisting Modules:\n- Vertical Grid Lines (Notification Filtering)\n- Glowing Cubes (VIP Prioritization)\n\nAwaiting directive.',
           createdAt: serverTimestamp()
+        }).catch(err => {
+          console.error("Failed to add initial welcome message:", err);
         });
       } else {
         setMessages(msgs);
@@ -524,6 +715,13 @@ function HUD({ onExit }: { onExit: () => void }) {
       recognitionRef.current.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         setIsListening(false);
+        if (event.error === 'not-allowed') {
+          showNotificationRef.current?.('Microphone permission blocked. Please grant access in your browser or try opening Jarvis in a new tab.', 'warning');
+        } else if (event.error === 'no-speech') {
+          showNotificationRef.current?.('No speech detected. Please try again.', 'info');
+        } else {
+          showNotificationRef.current?.(`Speech recognition error: ${event.error}`, 'warning');
+        }
       };
 
       recognitionRef.current.onend = () => {
@@ -536,8 +734,13 @@ function HUD({ onExit }: { onExit: () => void }) {
     if (isListening) {
       recognitionRef.current?.stop();
     } else {
-      recognitionRef.current?.start();
-      setIsListening(true);
+      try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error("Speech recognition start failed:", err);
+        showNotification('Failed to start speech recognition. Please verify permissions.', 'warning');
+      }
     }
   };
 
@@ -546,8 +749,15 @@ function HUD({ onExit }: { onExit: () => void }) {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      setAttachment({ data: base64String, mimeType: file.type, url: reader.result as string });
+      const originalUrl = reader.result as string;
+      compressImage(originalUrl, 500, 500).then((compressedUrl) => {
+        const base64String = compressedUrl.split(',')[1];
+        setAttachment({ data: base64String, mimeType: 'image/jpeg', url: compressedUrl });
+      }).catch((err) => {
+        console.error("Image compression failed, using original", err);
+        const base64String = originalUrl.split(',')[1];
+        setAttachment({ data: base64String, mimeType: file.type, url: originalUrl });
+      });
     };
     reader.readAsDataURL(file);
   };
@@ -556,7 +766,12 @@ function HUD({ onExit }: { onExit: () => void }) {
     try {
       const audio = new Audio(`data:audio/wav;base64,${base64}`);
       audio.volume = isMuted ? 0 : volume;
-      audio.play();
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn("Audio play interrupted or blocked by browser:", err);
+        });
+      }
     } catch (e) {
       console.error("Audio playback failed", e);
     }
@@ -579,7 +794,10 @@ function HUD({ onExit }: { onExit: () => void }) {
         createdAt: serverTimestamp()
       };
       if (currentAttachment?.url) userMsgData.attachmentUrl = currentAttachment.url;
-      addDoc(collection(db, `users/${user.uid}/messages`), userMsgData);
+      addDoc(collection(db, `users/${user.uid}/messages`), userMsgData).catch(err => {
+        console.error("Failed to add user message to firestore:", err);
+        showNotificationRef.current?.("Failed to save message to database.", "warning");
+      });
     }
     
     setInput('');
@@ -622,9 +840,18 @@ function HUD({ onExit }: { onExit: () => void }) {
               try {
                 pcBuildData = JSON.parse(buildMatch[1]);
                 // Kinetic Shield Validation
-                if (pcBuildData.components.psu && pcBuildData.metrics.estimated_wattage_draw) {
-                  if (pcBuildData.components.psu.wattage < pcBuildData.metrics.estimated_wattage_draw * 1.5) {
-                    showNotification('KINETIC SHIELD: PSU WATTAGE LOW (HEADROOM < 1.5X)', 'warning');
+                const cpuName = pcBuildData.components?.cpu?.sku;
+                const moboName = pcBuildData.components?.motherboard?.sku;
+                const psuObj = pcBuildData.components?.psu;
+                
+                const dbCpu = mockVendorData.cpus.find((c: any) => c.name === cpuName);
+                const dbMobo = mockVendorData.motherboards.find((m: any) => m.name === moboName);
+                
+                if (dbCpu && dbMobo && dbCpu.socket !== dbMobo.socket) {
+                  showNotification('KINETIC SHIELD: CPU/Motherboard Socket Mismatch!', 'warning');
+                } else if (psuObj && pcBuildData.metrics?.estimated_wattage_draw) {
+                  if (psuObj.wattage < pcBuildData.metrics.estimated_wattage_draw * 1.3) {
+                    showNotification('KINETIC SHIELD: PSU WATTAGE LOW (HEADROOM < 1.3X)', 'warning');
                   }
                 }
                 textContent += part.text.replace(/```json-build\n([\s\S]*?)```/, '(PC BUILD SPECIFICATIONS EXTRACTED)');
@@ -663,7 +890,10 @@ function HUD({ onExit }: { onExit: () => void }) {
         if (codeContent) aiMsg.code = codeContent;
         if (execResult) aiMsg.result = execResult;
         if (pcBuildData) aiMsg.pcBuild = pcBuildData;
-        addDoc(collection(db, `users/${user.uid}/messages`), aiMsg);
+        addDoc(collection(db, `users/${user.uid}/messages`), aiMsg).catch(err => {
+          console.error("Failed to save AI response in Firestore:", err);
+          showNotificationRef.current?.("Failed to sync AI response to database.", "warning");
+        });
       } else {
         setMessages(prev => [...prev, { 
           id: Date.now().toString() + 'ai', 

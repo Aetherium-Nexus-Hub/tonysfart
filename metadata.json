@@ -1,5 +1,5 @@
 {
   "name": "Jarvis",
   "description": "Advanced AI protocol assistant with code execution capabilities.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["microphone"]
 }
