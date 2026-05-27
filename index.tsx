@@ -793,7 +793,13 @@ function HUD({ onExit }: { onExit: () => void }) {
         content: userMsg,
         createdAt: serverTimestamp()
       };
-      if (currentAttachment?.url) userMsgData.attachmentUrl = currentAttachment.url;
+      if (currentAttachment?.url) {
+        if (currentAttachment.url.length < 500000) {
+           userMsgData.attachmentUrl = currentAttachment.url;
+        } else {
+           console.warn("Attachment too large to save to Firestore. Skipping persistence for this attachment.");
+        }
+      }
       addDoc(collection(db, `users/${user.uid}/messages`), userMsgData).catch(err => {
         console.error("Failed to add user message to firestore:", err);
         showNotificationRef.current?.("Failed to save message to database.", "warning");
@@ -884,11 +890,11 @@ function HUD({ onExit }: { onExit: () => void }) {
         const aiMsg: any = {
           uid: user.uid,
           role: 'ai',
-          content: textContent,
+          content: textContent ? textContent.slice(0, 500000) : '',
           createdAt: serverTimestamp()
         };
-        if (codeContent) aiMsg.code = codeContent;
-        if (execResult) aiMsg.result = execResult;
+        if (codeContent) aiMsg.code = codeContent.slice(0, 200000);
+        if (execResult) aiMsg.result = execResult.slice(0, 200000);
         if (pcBuildData) aiMsg.pcBuild = pcBuildData;
         addDoc(collection(db, `users/${user.uid}/messages`), aiMsg).catch(err => {
           console.error("Failed to save AI response in Firestore:", err);
