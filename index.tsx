@@ -7,10 +7,120 @@
 import { GoogleGenAI } from '@google/genai';
 import { marked } from 'marked';
 import React, { useState, useEffect, useRef } from 'react';
+
+// Advanced, high-performance syntax highlighting tokenizer for JARVIS theme
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function highlightTokens(code: string, lang?: string): string {
+  const normalizedLang = (lang || 'txt').toLowerCase();
+  
+  if (normalizedLang === 'txt' || normalizedLang === 'text' || normalizedLang === 'markdown' || normalizedLang === 'md') {
+    return escapeHtml(code);
+  }
+
+  // Token regex patterns optimized for JavaScript, TypeScript, Python, JSON, HTML, Bash
+  const tokenRegex = new RegExp(
+    [
+      // Comments (group 1)
+      "(\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/|#[^\\n]*)",
+      // Strings (group 2)
+      "(\"(?:\\\\.|[^\"\\n])*\"|'(?:\\\\.|[^'\\n])*'|`(?:\\\\.|[^`])*`)",
+      // Keywords & Booleans/Special (group 3)
+      "\\b(const|let|var|function|return|import|export|from|class|default|extends|if|else|for|while|try|catch|finally|async|await|def|print|as|in|with|self|lambda|and|or|not|elif|pass|break|continue|yield|true|false|null|undefined|void)\\b",
+      // Function execution/declaration names (group 4)
+      "\\b(\\w+)(?=\\s*\\()",
+      // Numbers (group 5)
+      "\\b(\\d+(?:\\.\\d+)?)\\b",
+      // Typenames/Objects/Capitalized things (group 6)
+      "\\b([A-Z]\\w*)\\b"
+    ].join('|'),
+    'g'
+  );
+
+  let match;
+  let lastIndex = 0;
+  let resultHtml = '';
+
+  while ((match = tokenRegex.exec(code)) !== null) {
+    // Text before match
+    const before = code.substring(lastIndex, match.index);
+    resultHtml += escapeHtml(before);
+
+    const [lex, comment, stringVal, keyword, funcCall, num, typeName] = match;
+
+    if (comment !== undefined) {
+      resultHtml += `<span class="text-gray-500 italic font-mono">${escapeHtml(comment)}</span>`;
+    } else if (stringVal !== undefined) {
+      resultHtml += `<span class="text-yellow-400/90 font-medium font-mono">${escapeHtml(stringVal)}</span>`;
+    } else if (keyword !== undefined) {
+      const isBoolOrSpecial = ['true', 'false', 'null', 'undefined'].includes(keyword);
+      const colorClass = isBoolOrSpecial ? 'text-pink-400 font-bold font-mono' : 'text-pink-500 font-semibold font-mono';
+      resultHtml += `<span class="${colorClass}">${escapeHtml(keyword)}</span>`;
+    } else if (funcCall !== undefined) {
+      resultHtml += `<span class="text-cyan-300 font-medium font-mono">${escapeHtml(funcCall)}</span>`;
+    } else if (num !== undefined) {
+      resultHtml += `<span class="text-purple-400 font-semibold font-mono">${escapeHtml(num)}</span>`;
+    } else if (typeName !== undefined) {
+      resultHtml += `<span class="text-amber-300 font-medium font-mono">${escapeHtml(typeName)}</span>`;
+    } else {
+      resultHtml += escapeHtml(lex);
+    }
+
+    lastIndex = tokenRegex.lastIndex;
+  }
+
+  // Remainder
+  const remaining = code.substring(lastIndex);
+  resultHtml += escapeHtml(remaining);
+
+  return resultHtml;
+}
+
+// Inject custom renderer with COPY buttons and syntax highlighting into marked v15
+marked.use({
+  renderer: {
+    code(codeObj: any) {
+      const text = codeObj.text || '';
+      const lang = codeObj.lang || '';
+      const highlighted = highlightTokens(text, lang);
+      return `
+        <div class="my-4 border border-[#333] rounded-lg bg-[#05050a]/95 overflow-hidden shadow-2xl group flex flex-col">
+          <div class="px-4 py-2 bg-[#111]/90 border-b border-[#222] flex justify-between items-center text-[10px] text-gray-400 uppercase tracking-wider font-mono">
+            <span class="flex items-center gap-1.5 font-bold tracking-widest text-[#888]">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+              ${lang || 'CODE'}
+            </span>
+            <button 
+              onclick="navigator.clipboard.writeText(this.getAttribute('data-code')).then(() => { 
+                const s = this.textContent; 
+                this.textContent = 'COPIED'; 
+                this.style.color = '#10b981';
+                setTimeout(() => { this.textContent = s; this.style.color = ''; }, 2000); 
+              })" 
+              data-code="${escapeHtml(text)}"
+              class="hover:text-cyan-400 px-2.5 py-1 rounded border border-[#222] bg-[#0c0c14] transition-all cursor-pointer hover:border-cyan-400/30 font-bold active:scale-[0.98]"
+            >
+              COPY
+            </button>
+          </div>
+          <pre class="p-4 overflow-x-auto text-xs font-mono leading-relaxed bg-[#05050a] text-gray-300"><code class="language-${lang}">${highlighted}</code></pre>
+        </div>
+      `;
+    }
+  }
+});
+
 import { createRoot } from 'react-dom/client';
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
-import { Activity, SquareTerminal, Volume2, VolumeX, ShieldCheck, Send, Terminal, Mic, MicOff, Paperclip, X, Image as ImageIcon, Database, ArrowRight, Bell, Cpu, MousePointer2, Zap, LayoutGrid } from 'lucide-react';
+import { Activity, SquareTerminal, Volume2, VolumeX, ShieldCheck, Send, Terminal, Mic, MicOff, Paperclip, X, Image as ImageIcon, Database, ArrowRight, Bell, Cpu, MousePointer2, Zap, LayoutGrid, Server, Wrench, Paintbrush, ListTodo, Plus, Trash2, Play, AlertTriangle, Save, Sparkles, Check } from 'lucide-react';
 import { auth, db, loginWithGoogle, logout } from './firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -186,7 +296,163 @@ const ActiveProtocols = () => (
       </div>
     </div>
   </div>
-)
+);
+
+const SystemStatusPanel = ({ isLoading, currentBuildVram = 0 }: { isLoading: boolean; currentBuildVram?: number }) => {
+  const [latency, setLatency] = useState(18);
+  const [dbLatency, setDbLatency] = useState(38);
+  const [gpuLoad, setGpuLoad] = useState(24);
+  const [gpuTemp, setGpuTemp] = useState(51);
+  const [vramUsage, setVramUsage] = useState(12.4);
+
+  useEffect(() => {
+    const latencyInterval = setInterval(() => {
+      setLatency(prev => {
+        const base = isLoading ? 45 : 18;
+        const fluct = Math.floor(Math.random() * 8) - 4;
+        return Math.max(10, base + fluct);
+      });
+      setDbLatency(prev => {
+        const base = isLoading ? 70 : 38;
+        const fluct = Math.floor(Math.random() * 12) - 6;
+        return Math.max(25, base + fluct);
+      });
+    }, 1500);
+
+    return () => clearInterval(latencyInterval);
+  }, [isLoading]);
+
+  useEffect(() => {
+    const gpuInterval = setInterval(() => {
+      setGpuLoad(prev => {
+        if (isLoading) {
+          const target = 82 + Math.floor(Math.random() * 12);
+          return Math.min(99, target);
+        } else {
+          const target = 18 + Math.floor(Math.random() * 10);
+          return Math.max(8, target);
+        }
+      });
+
+      setGpuTemp(prev => {
+        if (isLoading) {
+          return Math.min(79, prev + Number((Math.random() * 1.8).toFixed(1)));
+        } else {
+          if (prev > 54) {
+            return Number((prev - (Math.random() * 1.2)).toFixed(1));
+          } else if (prev < 48) {
+            return Number((prev + (Math.random() * 0.6)).toFixed(1));
+          }
+          return Number((prev + (Math.random() * 0.6 - 0.3)).toFixed(1));
+        }
+      });
+
+      setVramUsage(prev => {
+        const baseVram = 11.8 + (currentBuildVram || 0);
+        const drift = (Math.random() * 0.15) - 0.07;
+        return Number((baseVram + drift).toFixed(2));
+      });
+    }, 1000);
+
+    return () => clearInterval(gpuInterval);
+  }, [isLoading, currentBuildVram]);
+
+  const getTempColor = (temp: number) => {
+    if (temp > 72) return 'text-red-500 font-bold';
+    if (temp > 62) return 'text-yellow-500';
+    return 'text-green-400';
+  };
+
+  const getLoadColor = (load: number) => {
+    if (load > 80) return 'text-red-500 font-bold animate-pulse';
+    if (load > 50) return 'text-yellow-500';
+    return 'text-cyan-400';
+  };
+
+  return (
+    <div className="bg-[#0a0a12]/80 backdrop-blur-md border border-[#333] rounded-xl p-4 flex flex-col shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+      <h2 className="font-mono text-xs text-gray-400 mb-3 flex items-center gap-2 tracking-wider">
+        <Server size={14} className="text-cyan-400 animate-pulse" />
+        DIAGNOSTIC STATUS
+      </h2>
+      <div className="flex flex-col gap-3 font-mono text-xs">
+        {/* Network section */}
+        <div className="border-b border-[#222]/80 pb-2 flex flex-col gap-1.5">
+          <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+            <span>Gateway Traffic</span>
+            <span className="text-green-400 text-[9px] px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 rounded">SECURE</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Hub Ping Latency</span>
+            <span className="text-cyan-400 tracking-wider">{latency} ms</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Live DB Synclink</span>
+            <span className="text-pink-500 tracking-wider">{dbLatency} ms</span>
+          </div>
+        </div>
+
+        {/* Model Connectivity section */}
+        <div className="border-b border-[#222]/80 pb-2 flex flex-col gap-1.5">
+          <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+            <span>AI Model Pipeline</span>
+            <span className="text-cyan-400 text-[9px] px-1.5 py-0.5 bg-cyan-400/10 border border-cyan-400/20 rounded font-normal">CONNECTED</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">TTS Audio Output</span>
+            <span className="text-green-450 text-[10px] text-green-400/90 font-bold">READY</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Cognitive Core Link</span>
+            <span className="text-cyan-400/90 font-bold">{API_KEY ? 'SECURE_GATE' : 'CONNECTED_LOCAL'}</span>
+          </div>
+        </div>
+
+        {/* GPU resources section */}
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+            <span>Grid Virtual GPU (vGPU)</span>
+            <span className="text-yellow-400 text-[9px] px-1.5 py-0.5 bg-yellow-400/10 border border-yellow-400/20 rounded">COMPUTE</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="bg-black/40 p-2 rounded border border-[#222] flex flex-col gap-1">
+              <span className="text-gray-500 text-[9px] uppercase">vGPU Core Load</span>
+              <span className={`font-bold tracking-wider ${getLoadColor(gpuLoad)}`}>{gpuLoad}%</span>
+              <div className="w-full bg-[#1e1e1e] h-1 rounded overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-300 ${gpuLoad > 80 ? 'bg-red-500' : gpuLoad > 50 ? 'bg-yellow-500' : 'bg-cyan-400'}`} 
+                  style={{ width: `${gpuLoad}%` }} 
+                />
+              </div>
+            </div>
+            <div className="bg-black/40 p-2 rounded border border-[#222] flex flex-col gap-1">
+              <span className="text-gray-500 text-[9px] uppercase">Core Thermal</span>
+              <span className={`font-bold tracking-wider ${getTempColor(gpuTemp)}`}>{gpuTemp}°C</span>
+              <div className="w-full bg-[#1e1e1e] h-1 rounded overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-300 ${gpuTemp > 72 ? 'bg-red-500' : gpuTemp > 62 ? 'bg-yellow-500' : 'bg-green-400'}`} 
+                  style={{ width: `${Math.max(5, Math.min(100, (gpuTemp - 30) / 60 * 100))}%` }} 
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5 mt-1">
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="text-gray-300">VRAM Buffer Allocation</span>
+              <span className="text-pink-400 font-bold tracking-wider">{vramUsage} / 24.00 GB</span>
+            </div>
+            <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-[#222] p-[1px]">
+              <div 
+                className="bg-gradient-to-r from-pink-500 to-pink-400 h-full rounded-full transition-all duration-700" 
+                style={{ width: `${(vramUsage / 24) * 100}%` }} 
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const PCBuildCard = ({ build }: { build: any }) => {
   if (!build) return null;
@@ -565,6 +831,846 @@ const TheForge = ({ code, result }: { code?: string, result?: string }) => (
   </div>
 )
 
+const WorkshopPanel = ({ onNotify }: { onNotify: (msg: string, type: 'info'|'success'|'warning') => void }) => {
+  const [subroutines, setSubroutines] = useState<any[]>([
+    { id: '1', name: 'Alpha Firewall Matrix', type: 'DEFENSE MATRIX', power: 'ARC REACTOR', vram: 18, freq: 3.2, date: '05/06/2026', ops: '57.6 TFLOPs' },
+    { id: '2', name: 'Neural Sensory Link', type: 'COGNITIVE GATE', power: 'SUB-QUANTUM', vram: 12, freq: 4.0, date: '05/06/2026', ops: '48.0 TFLOPs' }
+  ]);
+
+  const [name, setName] = useState('DELTA_VECTOR_X');
+  const [type, setType] = useState('DEFENSE MATRIX');
+  const [power, setPower] = useState('ARC REACTOR');
+  const [vram, setVram] = useState(16);
+  const [freq, setFreq] = useState(3.5);
+  const [progress, setProgress] = useState(-1);
+  const [log, setLog] = useState<string[]>([]);
+
+  const calculatedOps = (vram * freq).toFixed(1);
+
+  const startCompilation = () => {
+    if (!name.trim()) {
+      onNotify('Subroutine identifier is invalid.', 'warning');
+      return;
+    }
+    setProgress(0);
+    setLog(['SYS_INIT // BOOTSTRAPPING RECONSTRUCTORS...']);
+
+    const steps = [
+      { prg: 20, msg: 'BUS CHANNEL ALLOCATION... [OK]' },
+      { prg: 45, msg: `MEMORY MAPPING VRAM CORRIDORS: ${vram}GB ASSIGNED...` },
+      { prg: 70, msg: `QUANTUM SPIN ROTORS LOCKED AT ${freq}GHz IN PHASE...` },
+      { prg: 90, msg: `ENFORCING PROTOCOLS: TYPE=${type} POWER=${power}...` },
+      { prg: 100, msg: 'COMPILATION SEQUENCE COMPLETED SUCCESSFULLY.' }
+    ];
+
+    steps.forEach((step, idx) => {
+      setTimeout(() => {
+        setProgress(step.prg);
+        setLog(prev => [...prev, step.msg]);
+
+        if (step.prg === 100) {
+          setTimeout(() => {
+            const newSub = {
+              id: Date.now().toString(),
+              name: name.trim().toUpperCase(),
+              type,
+              power,
+              vram,
+              freq,
+              date: new Date().toLocaleDateString('en-GB'),
+              ops: `${calculatedOps} TFLOPs`
+            };
+            setSubroutines(prev => [newSub, ...prev]);
+            setProgress(-1);
+            setLog([]);
+            onNotify(`Core Module "${newSub.name}" Compiled & Registered.`, 'success');
+          }, 600);
+        }
+      }, (idx + 1) * 350);
+    });
+  };
+
+  const removeSubroutine = (id: string) => {
+    setSubroutines(prev => prev.filter(s => s.id !== id));
+    onNotify('Subroutine scrubbed from logical arrays.', 'info');
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#0a0a12]/50 p-4 font-mono text-xs overflow-y-auto">
+      <div className="border border-cyan-400/20 bg-cyan-400/5 p-3 rounded-xl mb-4 flex flex-col gap-3 relative">
+        <div className="flex justify-between items-center">
+          <span className="text-cyan-400 font-bold tracking-widest text-[10px] uppercase">🛠️ COMPILER WORKBENCH</span>
+          <span className="text-pink-500 font-bold text-[8px] border border-pink-500/20 px-1 py-0.5 rounded bg-pink-500/5 uppercase">STATIC CODES</span>
+        </div>
+
+        {progress !== -1 ? (
+          <div className="flex flex-col gap-2 py-4">
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="text-cyan-400 animate-pulse font-bold">COMPILING SUB-CORE: {name}</span>
+              <span className="text-cyan-400 font-bold">{progress}%</span>
+            </div>
+            <div className="w-full bg-[#111] h-2 rounded border border-[#222] p-[1px]">
+              <div 
+                className="bg-gradient-to-r from-cyan-400 to-pink-500 h-full rounded transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="bg-black/60 p-2 rounded border border-[#222] text-[9px] text-gray-400 min-h-[50px] font-mono whitespace-pre-line leading-relaxed">
+              {log.join('\n')}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-1">
+              <span className="text-gray-500 text-[9px] uppercase">Logical Identifier</span>
+              <input 
+                type="text" 
+                value={name} 
+                onChange={e => setName(e.target.value.replace(/\s+/g, '_'))}
+                className="bg-black/50 border border-[#222] focus:border-cyan-400 text-white rounded px-2.5 py-1 text-xs focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <span className="text-gray-500 text-[9px] uppercase">Symmetric Type</span>
+                <select 
+                  value={type} 
+                  onChange={e => setType(e.target.value)}
+                  className="bg-black/50 border border-[#222] focus:border-cyan-400 text-white rounded px-2.5 py-1 text-xs focus:outline-none"
+                >
+                  <option>DEFENSE MATRIX</option>
+                  <option>COGNITIVE GATE</option>
+                  <option>TACTICAL VECTOR</option>
+                  <option>RESONANCE CORE</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-gray-500 text-[9px] uppercase">Power Gateway</span>
+                <select 
+                  value={power} 
+                  onChange={e => setPower(e.target.value)}
+                  className="bg-black/50 border border-[#222] focus:border-cyan-400 text-white rounded px-2.5 py-1 text-xs focus:outline-none"
+                >
+                  <option>ARC REACTOR</option>
+                  <option>SUB-QUANTUM</option>
+                  <option>GRID DIRECT</option>
+                  <option>SOLAR CELLS</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-[9px] uppercase">
+                <span className="text-gray-500">Buffer Allocation</span>
+                <span className="text-cyan-400 font-bold">{vram} GB VRAM</span>
+              </div>
+              <input 
+                type="range" 
+                min="4" 
+                max="24" 
+                value={vram} 
+                onChange={e => setVram(parseInt(e.target.value))}
+                className="w-full accent-cyan-400 bg-[#1e1e24] h-1 rounded cursor-pointer"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-[9px] uppercase">
+                <span className="text-gray-500">Compute Speed Range</span>
+                <span className="text-pink-400 font-bold">{freq} GHz</span>
+              </div>
+              <input 
+                type="range" 
+                min="1.0" 
+                max="6.0" 
+                step="0.1" 
+                value={freq} 
+                onChange={e => setFreq(parseFloat(e.target.value))}
+                className="w-full accent-pink-500 bg-[#1e1e24] h-1 rounded cursor-pointer"
+              />
+            </div>
+
+            <div className="flex justify-between items-center text-[10px] border-t border-[#222] pt-2 mt-1">
+              <span className="text-gray-400">Yield Potential:</span>
+              <span className="text-gray-200 font-bold">{calculatedOps} TFLOPs</span>
+            </div>
+
+            <button 
+              onClick={startCompilation}
+              className="text-cyan-400 bg-cyan-400/10 border border-cyan-400/30 hover:bg-cyan-400/20 active:scale-[0.98] transition-all px-3 py-2 rounded-lg font-bold tracking-wider mt-1 flex justify-center items-center gap-1.5 cursor-pointer uppercase"
+            >
+              <Cpu size={14} className="animate-pulse" />
+              Compile Subroutine Core
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        <h3 className="text-gray-500 uppercase text-[9px] tracking-wider font-bold">ACTIVE REGISTRY ARRAY ({subroutines.length})</h3>
+        <div className="flex flex-col gap-2">
+          {subroutines.map(sub => (
+            <div key={sub.id} className="bg-black/40 border border-[#222]/80 p-2 rounded-lg hover:border-cyan-400/30 transition-colors flex justify-between items-start group">
+              <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-cyan-400 font-bold tracking-wider text-[11px] truncate">{sub.name}</span>
+                  <span className="text-[7px] text-[#666]">{sub.date}</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[8px] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-1 rounded uppercase">{sub.type}</span>
+                  <span className="text-[8px] bg-[#222] text-gray-400 px-1 rounded">{sub.power}</span>
+                  <span className="text-[8px] bg-pink-500/10 text-pink-400 border border-pink-500/20 px-1 rounded font-bold">{sub.ops}</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => removeSubroutine(sub.id)}
+                className="text-gray-500 hover:text-red-500 p-1 rounded hover:bg-red-500/10 transition-colors cursor-pointer"
+                title="De-register"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DrawingBoardPanel = ({ onNotify }: { onNotify: (msg: string, type: 'info'|'success'|'warning') => void }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [tool, setTool] = useState<'brush' | 'eraser' | 'node'>('brush');
+  const [color, setColor] = useState('#00f0ff');
+  const [brushSize, setBrushSize] = useState(3);
+  const [isDrawing, setIsDrawing] = useState(false);
+  
+  const [nodes, setNodes] = useState<{ id: string; x: number; y: number; name: string }[]>([]);
+  const [links, setLinks] = useState<{ from: string; to: string }[]>([]);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const canvas = canvasRef.current;
+      const container = containerRef.current;
+      if (!canvas || !container) return;
+      
+      const width = container.clientWidth;
+      const height = container.clientHeight - 42;
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) tempCtx.drawImage(canvas, 0, 0);
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = brushSize;
+        ctx.drawImage(tempCanvas, 0, 0);
+      }
+    };
+
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    if (containerRef.current) observer.observe(containerRef.current);
+
+    return () => observer.disconnect();
+  }, [containerRef.current]);
+
+  const getCoordinates = (e: any) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e: any) => {
+    const coords = getCoordinates(e);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    if (tool === 'node') {
+      const nodeName = `NODE_${String.fromCharCode(65 + (nodes.length % 26))}_${Math.floor(10 + Math.random() * 89)}`;
+      const newNode = {
+        id: Date.now().toString(),
+        x: coords.x,
+        y: coords.y,
+        name: nodeName
+      };
+      setNodes(prev => [...prev, newNode]);
+      onNotify(`Logic Node "${nodeName}" placed on Grid.`, 'success');
+      return;
+    }
+
+    setIsDrawing(true);
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.moveTo(coords.x, coords.y);
+      ctx.strokeStyle = tool === 'eraser' ? '#05050a' : color;
+      ctx.lineWidth = tool === 'eraser' ? brushSize * 4 : brushSize;
+    }
+  };
+
+  const draw = (e: any) => {
+    if (!isDrawing) return;
+    const coords = getCoordinates(e);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+    }
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearBoard = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    setNodes([]);
+    setLinks([]);
+    setSelectedNode(null);
+    onNotify('Drafting array thoroughly scrubbed.', 'info');
+  };
+
+  const handleNodeClick = (nodeId: string, e: any) => {
+    e.stopPropagation();
+    if (selectedNode === null) {
+      setSelectedNode(nodeId);
+      onNotify('Source Node selected. Select target.', 'info');
+    } else {
+      if (selectedNode !== nodeId) {
+        const exists = links.some(l => (l.from === selectedNode && l.to === nodeId) || (l.from === nodeId && l.to === selectedNode));
+        if (exists) {
+          setLinks(prev => prev.filter(l => !((l.from === selectedNode && l.to === nodeId) || (l.from === nodeId && l.to === selectedNode))));
+          onNotify('Logical gate alignment broken.', 'info');
+        } else {
+          setLinks(prev => [...prev, { from: selectedNode, to: nodeId }]);
+          onNotify('Logical gate vector linked.', 'success');
+        }
+      }
+      setSelectedNode(null);
+    }
+  };
+
+  const exportCanvas = () => {
+    onNotify('Exporting grid vector blueprint...', 'info');
+    setTimeout(() => {
+      onNotify('Blueprint snap stored inside buffer arrays.', 'success');
+    }, 800);
+  };
+
+  return (
+    <div ref={containerRef} className="flex-1 flex flex-col min-h-0 bg-[#05050a] h-full relative font-mono text-xs select-none">
+      <div className="px-3 py-1.5 border-b border-[#222] bg-[#0c0c14] flex justify-between items-center gap-2 flex-wrap shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <button 
+            onClick={() => setTool('brush')}
+            className={`px-2 py-0.5 border rounded shrink-0 transition-all font-bold tracking-tighter ${tool === 'brush' ? 'border-cyan-400 text-cyan-400 bg-cyan-400/10' : 'border-[#333] text-gray-500 hover:text-white'}`}
+          >
+            SKETCH
+          </button>
+          <button 
+            onClick={() => setTool('eraser')}
+            className={`px-2 py-0.5 border rounded shrink-0 transition-all font-bold tracking-tighter ${tool === 'eraser' ? 'border-pink-500 text-pink-500 bg-pink-500/10' : 'border-[#333] text-gray-500 hover:text-white'}`}
+          >
+            ERASE
+          </button>
+          <button 
+            onClick={() => setTool('node')}
+            className={`px-2 py-0.5 border rounded shrink-0 transition-all font-bold tracking-tighter ${tool === 'node' ? 'border-yellow-400 text-yellow-400 bg-yellow-400/10' : 'border-[#333] text-gray-500 hover:text-white'}`}
+          >
+            +NODE
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0 text-[10px]">
+          {tool !== 'eraser' && tool !== 'node' && (
+            <div className="flex gap-1.5">
+              {['#00f0ff', '#ec4899', '#facc15', '#ffffff'].map(c => (
+                <button 
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`w-3.5 h-3.5 rounded-full border border-black cursor-pointer transition-transform ${color === c ? 'scale-125 shadow-[0_0_8px_rgba(0,240,255,0.4)]' : ''}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          )}
+
+          <button onClick={clearBoard} className="text-gray-500 hover:text-pink-500 uppercase font-bold tracking-tighter cursor-pointer">
+            wipe
+          </button>
+          <button onClick={exportCanvas} className="text-cyan-400 hover:text-white uppercase font-bold tracking-tighter cursor-pointer">
+            snap
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 relative min-h-0 bg-[#05050a] cursor-crosshair overflow-hidden">
+        <div className="absolute inset-0 z-0 opacity-15 pointer-events-none" style={{
+          backgroundImage: 'linear-gradient(#222 1px, transparent 1px), linear-gradient(90deg, #222 1px, transparent 1px)',
+          backgroundSize: '16px 16px'
+        }} />
+
+        <canvas 
+          ref={canvasRef}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          className="absolute inset-0 z-10 w-full h-full"
+        />
+
+        <svg className="absolute inset-0 z-20 pointer-events-none w-full h-full">
+          {links.map((link, idx) => {
+            const nodeA = nodes.find(n => n.id === link.from);
+            const nodeB = nodes.find(n => n.id === link.to);
+            if (!nodeA || !nodeB) return null;
+            return (
+              <motion.line 
+                key={idx}
+                x1={nodeA.x}
+                y1={nodeA.y}
+                x2={nodeB.x}
+                y2={nodeB.y}
+                stroke="#00f0ff"
+                strokeWidth="1.5"
+                strokeDasharray="4, 4"
+                initial={{ strokeDashoffset: 100 }}
+                animate={{ strokeDashoffset: 0 }}
+                transition={{ duration: 5, ease: 'linear', repeat: Infinity }}
+              />
+            );
+          })}
+        </svg>
+
+        {nodes.map(node => (
+          <div 
+            key={node.id}
+            onClick={(e) => handleNodeClick(node.id, e)}
+            className="absolute z-30 -translate-x-1/2 -translate-y-1/2 cursor-pointer flex flex-col items-center group touch-none"
+            style={{ left: node.x, top: node.y }}
+          >
+            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedNode === node.id ? 'border-pink-500 bg-pink-500/20 scale-110 shadow-[0_0_12px_rgba(236,72,153,0.6)]' : 'border-yellow-400 bg-black hover:scale-105 hover:border-cyan-400'}`}>
+              <div className={`w-2 h-2 rounded-full ${selectedNode === node.id ? 'bg-pink-500' : 'bg-yellow-400 group-hover:bg-cyan-400'}`} />
+            </div>
+            <span className={`text-[8px] px-1 py-0.5 rounded border border-[#333] bg-[#0c0c14]/90 text-gray-400 pointer-events-none mt-1 font-mono group-hover:text-cyan-300 group-hover:border-cyan-400/30 ${selectedNode === node.id ? 'border-pink-500 text-pink-400' : ''}`}>
+              {node.name}
+            </span>
+          </div>
+        ))}
+
+        {nodes.length === 0 && (
+          <div className="absolute inset-x-4 top-1/3 text-center text-gray-600 italic pointer-events-none font-mono">
+            DRAFT BOARD DISENGAGED.<br/>
+            <span className="text-[10px] text-cyan-400/50 mt-1 block">Toggle [+NODE] to map alignments or draw directly.</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ProjectManagerPanel = ({ onNotify }: { onNotify: (msg: string, type: 'info'|'success'|'warning') => void }) => {
+  const [projects, setProjects] = useState<any[]>([
+    { 
+      id: '1', 
+      title: 'PROJECT MARK-XLV', 
+      priority: 'CRITICAL', 
+      cpu: 35, 
+      vram: 8, 
+      state: 'COMPILING',
+      tasks: [
+        { id: 't1', text: 'Seal cooling sub-baffles', done: true },
+        { id: 't2', text: 'Calibrate central core links', done: true },
+        { id: 't3', text: 'Enforce gateway routing', done: false }
+      ]
+    },
+    { 
+      id: '2', 
+      title: 'NEST CLOUD CORRIDOR', 
+      priority: 'HIGH', 
+      cpu: 25, 
+      vram: 6, 
+      state: 'STABLE',
+      tasks: [
+        { id: 't4', text: 'Deploy Spanner indices', done: true },
+        { id: 't5', text: 'Secure remote socket logs', done: false }
+      ]
+    }
+  ]);
+
+  const [newTitle, setNewTitle] = useState('');
+  const [newPriority, setNewPriority] = useState('STANDARD');
+  const [newCpu, setNewCpu] = useState(20);
+  const [newVram, setNewVram] = useState(4);
+  const [newTaskTexts, setNewTaskTexts] = useState<{[key: string]: string}>({});
+
+  const totalCpuAllocated = projects.reduce((sum, p) => sum + p.cpu, 0);
+  const totalVramAllocated = projects.reduce((sum, p) => sum + p.vram, 0);
+  const isOverloaded = totalCpuAllocated > 100 || totalVramAllocated > 24;
+
+  const createProject = () => {
+    if (!newTitle.trim()) {
+      onNotify('Configure a valid protocol title.', 'warning');
+      return;
+    }
+    const newProj = {
+      id: Date.now().toString(),
+      title: newTitle.trim().toUpperCase(),
+      priority: newPriority,
+      cpu: newCpu,
+      vram: newVram,
+      state: 'INITIALIZED',
+      tasks: []
+    };
+    setProjects(prev => [...prev, newProj]);
+    setNewTitle('');
+    onNotify(`Project protocol "${newProj.title}" online.`, 'success');
+  };
+
+  const removeProject = (id: string, name: string) => {
+    setProjects(prev => prev.filter(p => p.id !== id));
+    onNotify(`Project protocol "${name}" archived.`, 'info');
+  };
+
+  const toggleTask = (projId: string, taskId: string) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projId) return p;
+      return {
+        ...p,
+        tasks: p.tasks.map((t: any) => t.id === taskId ? { ...t, done: !t.done } : t)
+      };
+    }));
+  };
+
+  const addTask = (projId: string) => {
+    const text = newTaskTexts[projId] || '';
+    if (!text.trim()) return;
+
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projId) return p;
+      return {
+        ...p,
+        tasks: [...p.tasks, { id: Date.now().toString(), text: text.trim(), done: false }]
+      };
+    }));
+
+    setNewTaskTexts(prev => ({ ...prev, [projId]: '' }));
+    onNotify('Milestone task added to registry.', 'info');
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#0a0a12]/50 p-4 font-mono text-xs overflow-y-auto">
+      {isOverloaded && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-2.5 rounded-xl mb-4 font-bold tracking-tight animate-pulse flex items-center gap-2 text-[10px]">
+          <AlertTriangle size={14} className="shrink-0" />
+          <div>
+            CRITICAL THROTTLING DEPLOYED: COMPUTE CONGESTION
+            <div className="text-[9px] font-normal text-red-500/80 mt-0.5">
+              Allocated resources exceed grid hardware capacity. Archiving old pipelines recommended.
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 mb-4 bg-black/50 border border-[#222] p-2.5 rounded-xl text-[10px]">
+        <div className="flex flex-col gap-1">
+          <span className="text-gray-500 uppercase">Core Load Allocation</span>
+          <span className={`font-bold ${totalCpuAllocated > 100 ? 'text-red-500' : 'text-cyan-400'}`}>{totalCpuAllocated}% CPU load</span>
+          <div className="w-full bg-[#111] h-1.5 rounded overflow-hidden p-[1px] border border-[#222]">
+            <div 
+              className={`h-full rounded ${totalCpuAllocated > 100 ? 'bg-red-500' : 'bg-cyan-400'}`}
+              style={{ width: `${Math.min(100, totalCpuAllocated)}%` }}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1 border-l border-[#222] pl-2">
+          <span className="text-gray-500 uppercase font-mono">VRAM Allocated</span>
+          <span className={`font-bold ${totalVramAllocated > 24 ? 'text-red-500' : 'text-pink-400'}`}>{totalVramAllocated} / 24 GB</span>
+          <div className="w-full bg-[#111] h-1.5 rounded overflow-hidden p-[1px] border border-[#222]">
+            <div 
+              className={`h-full rounded ${totalVramAllocated > 24 ? 'bg-red-500' : 'bg-pink-400'}`}
+              style={{ width: `${Math.min(100, (totalVramAllocated / 24) * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-cyan-400/20 bg-cyan-400/5 p-3 rounded-xl mb-4 flex flex-col gap-2.5">
+        <span className="text-cyan-400 font-bold tracking-wider text-[10px] uppercase">📋 LINK NEW SCHEMATIC</span>
+        
+        <div className="flex flex-col gap-1">
+          <span className="text-gray-500 text-[9px] uppercase">Symmetric Core Name</span>
+          <input 
+            type="text" 
+            placeholder="e.g. PROJECT OUTRIDER"
+            value={newTitle} 
+            onChange={e => setNewTitle(e.target.value)}
+            className="bg-black/50 border border-[#222] focus:border-cyan-400 text-white rounded px-2.5 py-1 text-xs focus:outline-none placeholder-gray-600"
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col col-span-1 gap-1">
+            <span className="text-gray-500 text-[9px] uppercase">Priority</span>
+            <select 
+              value={newPriority} 
+              onChange={e => setNewPriority(e.target.value)}
+              className="bg-black/50 border border-[#222] focus:border-cyan-400 text-white rounded px-2 py-1 text-xs focus:outline-none"
+            >
+              <option>STANDARD</option>
+              <option>HIGH</option>
+              <option>CRITICAL</option>
+            </select>
+          </div>
+          <div className="flex flex-col col-span-1 gap-1">
+            <span className="text-gray-500 text-[9px] uppercase">CPU Load %</span>
+            <input 
+              type="number" 
+              min="5" 
+              max="100" 
+              value={newCpu} 
+              onChange={e => setNewCpu(Math.max(5, parseInt(e.target.value) || 0))}
+              className="bg-black/50 border border-[#222] focus:border-cyan-400 text-white rounded px-2 py-1 text-xs focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col col-span-1 gap-1">
+            <span className="text-gray-500 text-[9px] uppercase">VRAM (GB)</span>
+            <input 
+              type="number" 
+              min="1" 
+              max="24" 
+              value={newVram} 
+              onChange={e => setNewVram(Math.max(1, parseInt(e.target.value) || 0))}
+              className="bg-black/50 border border-[#222] focus:border-cyan-400 text-white rounded px-2 py-1 text-xs focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <button 
+          onClick={createProject}
+          className="bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-400 border border-cyan-400/50 py-1.5 rounded font-bold uppercase transition-all tracking-wider flex items-center justify-center gap-1 mt-1 cursor-pointer"
+        >
+          <Plus size={12} />
+          Create Protocol
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h3 className="text-gray-500 uppercase text-[9px] tracking-wider font-bold">ACTIVE WORKSPACE PROJECTS</h3>
+        <div className="flex flex-col gap-3">
+          {projects.map(proj => {
+            const completedCount = proj.tasks?.length ? proj.tasks.filter((t: any) => t.done).length : 0;
+            const progressPct = proj.tasks?.length ? Math.round((completedCount / proj.tasks.length) * 100) : 0;
+            const prioColor = proj.priority === 'CRITICAL' ? 'text-red-500 font-bold border-red-500/20 bg-red-500/5' : proj.priority === 'HIGH' ? 'text-yellow-500 border-yellow-500/20 bg-yellow-500/5' : 'text-gray-400 border-[#222] bg-[#111]';
+
+            return (
+              <div key={proj.id} className="bg-black/40 border border-[#222]/90 rounded-xl p-3 flex flex-col gap-2 hover:border-cyan-400/20 transition-all relative">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-cyan-400 font-semibold tracking-wider text-[11px] truncate md:max-w-[200px]">{proj.title}</span>
+                    <span className={`text-[8px] uppercase px-1 py-0.5 border rounded w-max mt-1 font-bold ${prioColor}`}>{proj.priority}</span>
+                  </div>
+                  <button 
+                    onClick={() => removeProject(proj.id, proj.title)}
+                    className="text-gray-500 hover:text-red-500 p-1 rounded hover:bg-red-500/10 transition-colors shrink-0 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-1 text-[9px] mt-1">
+                  <div className="flex justify-between items-center text-gray-500">
+                    <span>Task Progression:</span>
+                    <span className="text-gray-300 font-bold">{progressPct}% ({completedCount}/{proj.tasks?.length || 0})</span>
+                  </div>
+                  <div className="w-full bg-[#111] h-1.5 rounded-full overflow-hidden p-[1px] border border-[#222]">
+                    <div 
+                      className={`h-full rounded-full bg-gradient-to-r from-cyan-400 to-pink-500 transition-all duration-500`}
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-[#222] text-[9px]">
+                  <span className="text-gray-500 uppercase tracking-widest font-bold">Tasks checklist</span>
+                  <div className="flex flex-col gap-1">
+                    {proj.tasks?.map((task: any) => (
+                      <div 
+                        key={task.id} 
+                        onClick={() => toggleTask(proj.id, task.id)}
+                        className="flex items-center gap-2 hover:text-white text-gray-400 cursor-pointer transition-colors p-1 rounded hover:bg-white/5"
+                      >
+                        <div className={`w-3.5 h-3.5 border rounded flex items-center justify-center shrink-0 transition-colors ${task.done ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-[#333]'}`}>
+                          {task.done && <Check size={10} />}
+                        </div>
+                        <span className={`truncate ${task.done ? 'line-through text-gray-600' : ''}`} title={task.text}>{task.text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-1.5 mt-1.5">
+                    <input 
+                      type="text" 
+                      placeholder="Insert task details..."
+                      value={newTaskTexts[proj.id] || ''}
+                      onChange={e => setNewTaskTexts(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                      onKeyDown={e => e.key === 'Enter' && addTask(proj.id)}
+                      className="bg-black/60 border border-[#222] focus:border-cyan-400 text-white rounded-md px-2 py-1 text-[9px] flex-1 focus:outline-none"
+                    />
+                    <button 
+                      onClick={() => addTask(proj.id)}
+                      className="bg-[#111] text-cyan-400 hover:text-white border border-[#222] px-2 rounded-md hover:border-cyan-400/30 transition-colors text-[9px] font-bold uppercase cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const IntelligenceCore = ({ 
+  code, 
+  result, 
+  isLoading,
+  onNotify 
+}: { 
+  code?: string; 
+  result?: string; 
+  isLoading: boolean;
+  onNotify: (msg: string, type: 'info'|'success'|'warning') => void;
+}) => {
+  const [activeTab, setActiveTab] = useState<'forge' | 'workshop' | 'drawing' | 'projects'>('forge');
+
+  useEffect(() => {
+    if (code) {
+      setActiveTab('forge');
+    }
+  }, [code, result]);
+
+  return (
+    <div className="flex flex-col h-full bg-[#0a0a12]/80 backdrop-blur-md overflow-hidden">
+      <div className="border-b border-[#333] bg-[#111]/80 backdrop-blur-md flex items-center justify-between shrink-0 p-1.5">
+        <div className="flex gap-1 flex-wrap">
+          <button 
+            onClick={() => setActiveTab('forge')}
+            className={`px-2.5 py-1.5 rounded-lg font-mono text-[10px] tracking-tight transition-all font-bold cursor-pointer uppercase ${activeTab === 'forge' ? 'text-pink-500 bg-pink-500/10 border border-pink-500/20' : 'text-gray-500 hover:text-white hover:bg-gray-500/5'}`}
+          >
+            Forge
+          </button>
+          <button 
+            onClick={() => setActiveTab('workshop')}
+            className={`px-2.5 py-1.5 rounded-lg font-mono text-[10px] tracking-tight transition-all font-bold cursor-pointer uppercase ${activeTab === 'workshop' ? 'text-cyan-400 bg-cyan-400/10 border border-cyan-400/20' : 'text-gray-500 hover:text-white hover:bg-gray-500/5'}`}
+          >
+            Workshop
+          </button>
+          <button 
+            onClick={() => setActiveTab('drawing')}
+            className={`px-2.5 py-1.5 rounded-lg font-mono text-[10px] tracking-tight transition-all font-bold cursor-pointer uppercase ${activeTab === 'drawing' ? 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20' : 'text-gray-500 hover:text-white hover:bg-gray-500/5'}`}
+          >
+            Drawing
+          </button>
+          <button 
+            onClick={() => setActiveTab('projects')}
+            className={`px-2.5 py-1.5 rounded-lg font-mono text-[10px] tracking-tight transition-all font-bold cursor-pointer uppercase ${activeTab === 'projects' ? 'text-green-400 bg-green-400/10 border border-green-400/20' : 'text-gray-500 hover:text-white hover:bg-gray-500/5'}`}
+          >
+            Scheduler
+          </button>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-1.5 px-2 font-mono text-[8px] text-cyan-400/50 uppercase select-none shrink-0 pr-3 font-semibold tracking-wider">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          Intel-Grid Linked
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 bg-[#05050a]/20">
+        <AnimatePresence mode="wait">
+          {activeTab === 'forge' && (
+            <motion.div 
+              key="forge" 
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="h-full"
+            >
+              <TheForge code={code} result={result} />
+            </motion.div>
+          )}
+
+          {activeTab === 'workshop' && (
+            <motion.div 
+              key="workshop" 
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="h-full"
+            >
+              <WorkshopPanel onNotify={onNotify} />
+            </motion.div>
+          )}
+
+          {activeTab === 'drawing' && (
+            <motion.div 
+              key="drawing" 
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="h-full"
+            >
+              <DrawingBoardPanel onNotify={onNotify} />
+            </motion.div>
+          )}
+
+          {activeTab === 'projects' && (
+            <motion.div 
+              key="projects" 
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="h-full"
+            >
+              <ProjectManagerPanel onNotify={onNotify} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
 const compressImage = (dataUrl: string, maxWidth = 500, maxHeight = 500): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -604,6 +1710,16 @@ const compressImage = (dataUrl: string, maxWidth = 500, maxHeight = 500): Promis
 
 function HUD({ onExit }: { onExit: () => void }) {
   const [input, setInput] = useState('');
+  const [commandHistory, setCommandHistory] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('kinetic_command_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const [tempInput, setTempInput] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -632,6 +1748,8 @@ function HUD({ onExit }: { onExit: () => void }) {
   });
 
   const latestExecution = [...messages].reverse().find(m => m.code || m.result);
+  const latestBuildMessage = [...messages].reverse().find(m => m.pcBuild);
+  const currentBuildVram = latestBuildMessage?.pcBuild?.metrics?.vram_total || 0;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -783,6 +1901,28 @@ function HUD({ onExit }: { onExit: () => void }) {
     const userMsg = input;
     const currentAttachment = attachment;
     const newMsgId = Date.now().toString();
+    
+    if (userMsg.trim()) {
+      setCommandHistory(prev => {
+        if (prev.length > 0 && prev[prev.length - 1] === userMsg.trim()) {
+          setHistoryIndex(-1);
+          setTempInput('');
+          return prev;
+        }
+        const updated = [...prev, userMsg.trim()].slice(-100);
+        try {
+          localStorage.setItem('kinetic_command_history', JSON.stringify(updated));
+        } catch (e) {
+          console.error("Failed to save command history to localStorage:", e);
+        }
+        setHistoryIndex(-1);
+        setTempInput('');
+        return updated;
+      });
+    } else {
+      setHistoryIndex(-1);
+      setTempInput('');
+    }
     
     if (!user) {
       setMessages(prev => [...prev, { id: newMsgId, role: 'user', content: userMsg, attachmentUrl: currentAttachment?.url }]);
@@ -937,6 +2077,40 @@ function HUD({ onExit }: { onExit: () => void }) {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSend();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (commandHistory.length === 0) return;
+      
+      let nextIndex = historyIndex;
+      if (historyIndex === -1) {
+        // Start cycling: save what user is typing as a draft
+        setTempInput(input);
+        nextIndex = commandHistory.length - 1;
+      } else {
+        nextIndex = Math.max(0, historyIndex - 1);
+      }
+      setHistoryIndex(nextIndex);
+      setInput(commandHistory[nextIndex]);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex === -1) return;
+      
+      let nextIndex = historyIndex + 1;
+      if (nextIndex >= commandHistory.length) {
+        // Reached end, restore draft
+        setHistoryIndex(-1);
+        setInput(tempInput);
+        setTempInput('');
+      } else {
+        setHistoryIndex(nextIndex);
+        setInput(commandHistory[nextIndex]);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#05050a] text-white p-4 md:p-6 font-sans flex flex-col h-screen overflow-hidden relative">
       <div className="scanlines" />
@@ -994,6 +2168,7 @@ function HUD({ onExit }: { onExit: () => void }) {
         <div className="hidden lg:flex lg:col-span-3 flex-col gap-6 min-h-0 overflow-y-auto pb-4">
           <TelemetryPanel />
           <ActiveProtocols />
+          <SystemStatusPanel isLoading={isLoading} currentBuildVram={currentBuildVram} />
           <DiagnosticPanel 
             onNotify={showNotification} 
             onSetInput={setInput}
@@ -1103,8 +2278,8 @@ function HUD({ onExit }: { onExit: () => void }) {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Enter command directive..."
+                onKeyDown={handleKeyDown}
+                placeholder="Enter command directive (↑/↓ for history)..."
                 className="flex-1 bg-[#1a1a24] border border-[#333] rounded-lg px-4 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-400 transition-colors shadow-inner"
                 disabled={isLoading}
               />
@@ -1119,9 +2294,14 @@ function HUD({ onExit }: { onExit: () => void }) {
           </div>
         </div>
 
-        {/* Right Panel: The Forge (Code Execution) */}
+        {/* Right Panel: Intelligence Core (Workshop, Drawing Board, Project Manager, The Forge) */}
         <div className="hidden md:flex lg:col-span-4 flex-col min-h-0 border border-[#333] rounded-xl overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.8)]">
-          <TheForge code={latestExecution?.code} result={latestExecution?.result} />
+          <IntelligenceCore 
+            code={latestExecution?.code} 
+            result={latestExecution?.result} 
+            isLoading={isLoading}
+            onNotify={showNotification}
+          />
         </div>
       </div>
     </div>
